@@ -29,7 +29,8 @@ export function parseAssetJson(content: string): CollectionConfig {
            tok.token_mutate_setting,
            tok.property_map,
            tok.royalty_points_numerator,
-           tok.royalty_points_denominator
+           tok.royalty_points_denominator,
+           tok.royalty_payee_account,
        );
        tokens.push(new Token(tokenData, 0, tok.amount))
     });

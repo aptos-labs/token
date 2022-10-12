@@ -56,6 +56,7 @@
       },
       "royalty_points_denominator": 100,
       "royalty_points_numerator": 1,
+      "royalty_payee_account": "0xcafe",
       "token_mutate_setting": [false, false, false, false, false],
       "property_map": {
         "age": 10,

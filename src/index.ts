@@ -13,4 +13,7 @@ export class TokenSDK {
      * @return {*}
      */
     initConfig(id: string, url: string) {}
+
+
+
 }

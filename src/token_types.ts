@@ -21,8 +21,8 @@ export class RoyaltyConfig {
 
 export class CollectionData {
     public name: string;
-    public file_path: string;
-    public asset_metadata: string;
+    public filePath: string;
+    public assetMetadata: string;
     public description: string;
     public supply: number;
     public maximum: number;
@@ -38,8 +38,8 @@ export class CollectionData {
         mutateConfig: boolean[],
     ) {
         this.name = name || "";
-        this.file_path = filePath || "";
-        this.asset_metadata = assetMetadata || "";
+        this.filePath = filePath || "";
+        this.assetMetadata = assetMetadata || "";
         this.description = description || "";
         this.supply = supply || 0;
         this.maximum = maximum || 0;
@@ -59,6 +59,7 @@ export class TokenData {
     public mutateConfig: boolean[];
     public royaltyNumerator: number;
     public royaltyDenominator: number;
+    public royaltyPayeeAccount: TxnBuilderTypes.AccountAddress;
 
     constructor(
         name: string,
@@ -72,6 +73,7 @@ export class TokenData {
         properties: PropertyMap,
         royaltyNumerator: number,
         royaltyDenominator: number,
+        royaltyPayeeAccount: TxnBuilderTypes.AccountAddress,
     ) {
         this.name = name || "";
         this.filePath = filePath || "";
@@ -84,6 +86,7 @@ export class TokenData {
         this.defaultProperties = properties || {};
         this.royaltyNumerator = royaltyNumerator || 0;
         this.royaltyDenominator = royaltyDenominator || 0;
+        this.royaltyPayeeAccount = royaltyPayeeAccount;
     }
 }
 
