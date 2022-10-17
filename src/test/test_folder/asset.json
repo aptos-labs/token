@@ -47,7 +47,7 @@
           "category": "video"
         }
       },
-      "amount": 2,
+      "supply": 2,
       "royalty_creator_weights": {
         "0xd": 4,
         "0xe": 5,
@@ -87,7 +87,7 @@
           "category": "video"
         }
       },
-      "amount": 1,
+      "supply": 1,
       "royalty_creator_weights": {
         "0xa": 4,
         "0xb": 5,

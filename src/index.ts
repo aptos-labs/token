@@ -6,14 +6,11 @@
  * ```
  */
 export class TokenSDK {
-    /**
-     * @description:
-     * @param {string} id
-     * @param {string} url
-     * @return {*}
-     */
-    initConfig(id: string, url: string) {}
-
-
-
+  /**
+   * @description:
+   * @param {string} id
+   * @param {string} url
+   * @return {*}
+   */
+  initConfig(id: string, url: string) {}
 }
