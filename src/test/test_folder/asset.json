@@ -65,7 +65,7 @@
       }
     },
     {
-      "name": "nft2",
+      "name": "����",
       "description": "this is a description for nft2",
       "token_file_path": "./token_2.png",
       "token_asset_metadata": {
