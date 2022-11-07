@@ -14,7 +14,7 @@
     "pretty": true
   },
   "include": [
-    "src",
+    "SDK/typescript/src",
     "*.ts"
   ],
 }
