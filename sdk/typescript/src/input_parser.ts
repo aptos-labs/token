@@ -1,6 +1,5 @@
 import {
   CollectionData,
-  RoyaltyConfig,
   TokenData,
   Token,
   CollectionConfig

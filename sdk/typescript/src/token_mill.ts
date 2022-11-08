@@ -4,14 +4,7 @@ import {
   RoyaltyConfig,
   Token
 } from './token_types';
-import {
-  AptosAccount,
-  AptosClient,
-  HexString,
-  MaybeHexString,
-  TokenClient,
-  TxnBuilderTypes
-} from 'aptos';
+import { AptosAccount, AptosClient, HexString, TokenClient } from 'aptos';
 import { parseAssetJson } from './input_parser';
 import fs from 'fs';
 import { AssetUploader } from './asset_uploader';

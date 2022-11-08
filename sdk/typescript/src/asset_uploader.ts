@@ -2,7 +2,6 @@ import Bundlr from '@bundlr-network/client';
 import NodeBundlr from '@bundlr-network/client/build/node/bundlr';
 import { AptosAccount } from 'aptos';
 import BigNumber from 'bignumber.js';
-import fs from 'fs';
 
 export interface AssetUploader {
   provider: string;
@@ -14,7 +13,7 @@ export interface AssetUploader {
 export class BundlrUploader implements AssetUploader {
   provider: string;
   bundlrUrl: string = 'https://devnet.bundlr.network';
-  bundlr: NodeBundlr;
+  bundlrPromise: Promise<NodeBundlr>;
   account: AptosAccount;
 
   constructor(account: AptosAccount) {
@@ -24,7 +23,7 @@ export class BundlrUploader implements AssetUploader {
       return this.account.signBuffer(msg).toUint8Array();
     };
 
-    this.bundlr = Bundlr.init({
+    this.bundlrPromise = Bundlr.init({
       url: this.bundlrUrl,
       currency: 'aptos',
       publicKey: this.account.pubKey().toString(),
@@ -33,11 +32,14 @@ export class BundlrUploader implements AssetUploader {
   }
 
   async uploadFile(filePath: string): Promise<string> {
-    let res = await this.bundlr.uploadFile(filePath);
-    return res.data.id;
+    const bundlr = await this.bundlrPromise;
+
+    let res = await bundlr.uploadFile(filePath);
+    return res.id;
   }
 
   async fund(amount: string) {
-    await this.bundlr.fund(BigNumber(amount));
+    const bundlr = await this.bundlrPromise;
+    await bundlr.fund(BigNumber(amount));
   }
 }
