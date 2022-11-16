@@ -1,7 +1,7 @@
-import Bundlr from '@bundlr-network/client';
-import NodeBundlr from '@bundlr-network/client/build/node/bundlr';
-import { AptosAccount } from 'aptos';
-import BigNumber from 'bignumber.js';
+import Bundlr from "@bundlr-network/client";
+import NodeBundlr from "@bundlr-network/client/build/node/bundlr";
+import { AptosAccount } from "aptos";
+import BigNumber from "bignumber.js";
 
 export interface AssetUploader {
   provider: string;
@@ -12,29 +12,31 @@ export interface AssetUploader {
 
 export class BundlrUploader implements AssetUploader {
   provider: string;
-  bundlrUrl: string = 'https://devnet.bundlr.network';
+
+  bundlrUrl: string = "https://devnet.bundlr.network";
+
   bundlrPromise: Promise<NodeBundlr>;
+
   account: AptosAccount;
 
   constructor(account: AptosAccount) {
-    this.provider = 'bundlr';
+    this.provider = "bundlr";
     this.account = account;
-    const signingFunction = async (msg: Uint8Array) => {
-      return this.account.signBuffer(msg).toUint8Array();
-    };
+    const signingFunction = async (msg: Uint8Array) =>
+      this.account.signBuffer(msg).toUint8Array();
 
     this.bundlrPromise = Bundlr.init({
       url: this.bundlrUrl,
-      currency: 'aptos',
+      currency: "aptos",
       publicKey: this.account.pubKey().toString(),
-      signingFunction: signingFunction
+      signingFunction,
     });
   }
 
   async uploadFile(filePath: string): Promise<string> {
     const bundlr = await this.bundlrPromise;
 
-    let res = await bundlr.uploadFile(filePath);
+    const res = await bundlr.uploadFile(filePath);
     return res.id;
   }
 

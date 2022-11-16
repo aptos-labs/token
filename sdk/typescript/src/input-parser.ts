@@ -2,28 +2,28 @@ import {
   CollectionData,
   TokenData,
   Token,
-  CollectionConfig
-} from './token_types';
+  CollectionConfig,
+} from "./token-types";
 
 export function parseAssetJson(content: string): CollectionConfig {
-  let assetConfig = JSON.parse(content);
+  const assetConfig = JSON.parse(content);
 
   // create collection data
-  let cd = new CollectionData(
+  const cd = new CollectionData(
     assetConfig.name,
     assetConfig.collection_file_path,
     assetConfig.collection_asset_metadata,
     assetConfig.description,
     assetConfig.supply,
     assetConfig.maximum,
-    assetConfig.mutability_config
+    assetConfig.mutability_config,
   );
   // create individual token
-  let toks = assetConfig.tokens;
-  let tokens: Token[] = [];
+  const toks = assetConfig.tokens;
+  const tokens: Token[] = [];
 
   toks.forEach((tok: any) => {
-    let tokenData = new TokenData(
+    const tokenData = new TokenData(
       tok.name,
       tok.token_file_path,
       tok.token_asset_metadata,
@@ -35,7 +35,7 @@ export function parseAssetJson(content: string): CollectionConfig {
       tok.property_map,
       tok.royalty_points_numerator,
       tok.royalty_points_denominator,
-      tok.royalty_payee_account
+      tok.royalty_payee_account,
     );
     tokens.push(new Token(tokenData, 0, tok.amount));
   });

@@ -1,42 +1,46 @@
+import { AptosAccount, AptosClient, HexString, TokenClient } from "aptos";
+import fs from "fs";
 import {
   CollectionConfig,
   CollectionData,
   RoyaltyConfig,
-  Token
-} from './token_types';
-import { AptosAccount, AptosClient, HexString, TokenClient } from 'aptos';
-import { parseAssetJson } from './input_parser';
-import fs from 'fs';
-import { AssetUploader } from './asset_uploader';
-import { calculateContentHash } from './content_hash';
+  Token,
+} from "./token-types";
+import { parseAssetJson } from "./input-parser";
+import { AssetUploader } from "./asset-uploader";
+// import { calculateContentHash } from "./content-hash";
 
 export class TokenMill {
   folderPath: string;
+
   account: AptosAccount;
+
   tokenClient: TokenClient;
+
   uploader: AssetUploader;
 
   constructor(
     path: string,
     account: AptosAccount,
     nodeURL: string,
-    uploader: AssetUploader
+    uploader: AssetUploader,
   ) {
     this.folderPath = path;
     this.account = account;
     this.uploader = uploader;
-    let client = new AptosClient(nodeURL);
+    const client = new AptosClient(nodeURL);
     this.tokenClient = new TokenClient(client);
   }
 
   async run() {
     // construct asset json file path
-    let assetJsonpath = `${this.folderPath}/asset.json`;
-    let content = fs.readFileSync(assetJsonpath, 'utf8');
+    const assetJsonpath = `${this.folderPath}/asset.json`;
+    const content = fs.readFileSync(assetJsonpath, "utf8");
     this.validateAssetFolder();
-    let config = this.parseAssetJson(content);
-    let a = await this.createCollection(config.collectionData);
+    const config = this.parseAssetJson(content);
+    // eslint-disable-next-line no-restricted-syntax
     for (const token of config.tokens) {
+      // eslint-disable-next-line no-await-in-loop
       await this.createToken(token, config.collectionData);
     }
   }
@@ -52,34 +56,34 @@ export class TokenMill {
   }
 
   async createCollection(collectionData: CollectionData): Promise<string> {
-    let col_uri = await this.uploadOffChainMetaData(
+    const colUri = await this.uploadOffChainMetaData(
       `${this.folderPath}/${collectionData.filePath}`,
-      collectionData.assetMetadata
+      JSON.parse(collectionData.assetMetadata),
     );
     return this.tokenClient.createCollection(
       this.account,
       collectionData.name,
       collectionData.description,
-      col_uri,
-      collectionData.maximum
+      colUri,
+      collectionData.maximum,
     );
   }
 
   async createToken(
     token: Token,
-    collectionData: CollectionData
+    collectionData: CollectionData,
   ): Promise<string> {
     // create the content hash and construct the property map
-    let fpath = `${this.folderPath}/${token.tokenData.filePath}`;
+    const fpath = `${this.folderPath}/${token.tokenData.filePath}`;
 
-    let contentHash = calculateContentHash(fpath);
+    // const contentHash = calculateContentHash(fpath);
     // TODO construct property key with content hash
-    let uri = await this.uploadOffChainMetaData(
+    const uri = await this.uploadOffChainMetaData(
       fpath,
-      collectionData.assetMetadata
+      JSON.parse(collectionData.assetMetadata),
     );
 
-    let royalty_payee_account =
+    const royaltyPayeeAccount =
       token.tokenData.royaltyPayeeAccount === undefined
         ? await this.createRoyaltyAccount(token.tokenData.royaltyWeights)
         : token.tokenData.royaltyPayeeAccount;
@@ -91,28 +95,29 @@ export class TokenMill {
       token.tokenData.supply,
       uri,
       token.tokenData.maximum,
-      royalty_payee_account
+      royaltyPayeeAccount,
     );
   }
 
   // create shared account for royalty
   // TODO: this should dedup if the creators and weights are same
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async createRoyaltyAccount(config: RoyaltyConfig): Promise<HexString> {
-    return new HexString('0xcafe');
+    return new HexString("0xcafe");
   }
 
   // construct the final json with URL and input config
   async uploadOffChainMetaData(
     assetPath: string,
-    metaData: any
+    metaData: { [key: string]: any },
   ): Promise<string> {
-    let dataId = await this.uploader.uploadFile(assetPath);
-    let url = this.createArweaveURLfromId(dataId);
+    const dataId = await this.uploader.uploadFile(assetPath);
+    const url = this.createArweaveURLfromId(dataId);
 
     // TODO: directly construct the metadata json based on file type
-    metaData['image'] = url;
-    fs.writeFileSync(`${assetPath}_test.json`, JSON.stringify(metaData));
-    let jsonId = await this.uploader.uploadFile(`${assetPath}_test.json`);
+    const meta = { ...metaData, image: url };
+    fs.writeFileSync(`${assetPath}_test.json`, JSON.stringify(meta));
+    const jsonId = await this.uploader.uploadFile(`${assetPath}_test.json`);
     return this.createArweaveURLfromId(jsonId);
   }
 

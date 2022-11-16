@@ -12,9 +12,7 @@ dist
 # jest
 /coverage
 
-src/test/test_folder/collection_1.png_test.json
-src/test/test_folder/token_1.png_test.json
-src/test/test_folder/token_2.png_test.json
+src/test/assets
 
 #.idea
 .idea
