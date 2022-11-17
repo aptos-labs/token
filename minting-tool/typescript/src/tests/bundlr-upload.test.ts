@@ -12,7 +12,7 @@ test(
 
     const node = new BundlrUploader(alice);
     await node.fund("10000000"); // fund 0.1 apt to bundlr
-    const res = await node.uploadFile("./src/test/assets/asset.json");
+    const res = await node.uploadFile("./src/tests/assets/asset.json");
     expect(res !== undefined);
   },
   60 * 1000,

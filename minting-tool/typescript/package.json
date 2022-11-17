@@ -1,18 +1,20 @@
 {
-  "name": "aptos_token",
+  "name": "aptos-mint",
   "description": "Aptos Token SDK",
   "license": "Apache-2.0",
   "engines": {
     "node": ">=11.0.0"
   },
   "main": "./dist/index.js",
+  "bin": "./dist/cli.js",
   "scripts": {
     "build": "rm -rf dist && tsc -p .",
     "test": "jest",
     "typedoc": "rm -rf docs && typedoc",
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "lint": "eslint \"**/*.ts\"",
-    "prepare": "cd ../.. && husky install .husky"
+    "prepare": "cd ../.. && husky install .husky",
+    "cli": "ts-node ./src/cli.ts"
   },
   "repository": {
     "type": "git",
@@ -29,9 +31,14 @@
     "@noble/hashes": "1.1.2",
     "aptos": "1.3.15",
     "bignumber.js": "^9.1.0",
-    "crypto": "^1.0.1"
+    "chalk": "4.1.2",
+    "crypto": "^1.0.1",
+    "docopt": "^0.6.2",
+    "globby": "11.0.4",
+    "tiny-invariant": "^1.3.1"
   },
   "devDependencies": {
+    "@types/docopt": "^0.6.33",
     "@types/jest": "28.1.8",
     "@types/node": "18.6.2",
     "@types/node-fetch": "^2.6.2",
@@ -46,7 +53,6 @@
     "jest": "^28.1.3",
     "prettier": "^2.6.2",
     "ts-jest": "^28.0.8",
-    "ts-loader": "^9.3.1",
     "ts-node": "10.9.1",
     "typedoc": "^0.23.16",
     "typescript": "^4.8.4"

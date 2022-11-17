@@ -20,7 +20,7 @@ test(
     const bundlr = await uploader.bundlrPromise;
     const balance = await bundlr.getLoadedBalance();
     console.log("Alice's bundlr balance: ", balance);
-    const mill = new TokenMill("./src/test/assets", alice, nodeUrl, uploader);
+    const mill = new TokenMill("./src/tests/assets", alice, nodeUrl, uploader);
     await mill.run();
   },
   60 * 1000,

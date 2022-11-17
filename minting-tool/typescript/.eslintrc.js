@@ -29,6 +29,7 @@ module.exports = {
     ],
     "@typescript-eslint/no-unused-vars": ["error"],
     "class-methods-use-this": "off",
+    "no-console": "off",
   },
   settings: {
     "import/resolver": {
