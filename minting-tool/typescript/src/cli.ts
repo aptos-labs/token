@@ -6,13 +6,13 @@ import { exit } from "process";
 import chalk from "chalk";
 import globby from "globby";
 import path from "path";
-import invariant from "tiny-invariant";
+import prompts from "prompts";
 
 import { version } from "../package.json";
 
 const doc = `
 Usage:
-  aptos-mint init <asset_path>
+  aptos-mint init --name=<name> --asset-path=<asset-path>
   aptos-mint -h | --help          Show this.
   aptos-mint --version
 `;
@@ -20,6 +20,146 @@ Usage:
 function exitWithError(message: string) {
   console.error(chalk.red(message));
   exit(1);
+}
+
+async function initProject(name: string, assetPath: string) {
+  const fullPath = `./${name}`;
+  if (fs.existsSync(fullPath)) {
+    exitWithError(`${fullPath} already exists.`);
+  }
+  fs.mkdirSync(fullPath, { recursive: true });
+
+  const configPath = `${fullPath}/config.json`;
+  if (fs.existsSync(configPath)) {
+    exitWithError(`${configPath} already exists.`);
+  }
+
+  fs.mkdirSync(fullPath, { recursive: true });
+
+  let enableWL = false;
+
+  const questions = [
+    {
+      type: "text",
+      name: "collectionName",
+      message: "What is the collection name?",
+      validate: (value: string) =>
+        value.length === 0 ? "Collection name cannot be empty" : true,
+    },
+    {
+      type: "text",
+      name: "collectionDescription",
+      message: "What is the collection description?",
+    },
+    {
+      type: "number",
+      name: "royaltyPercent",
+      message: "Enter royalty percentage. e.g. 5 represents 5%",
+    },
+    {
+      type: "text",
+      name: "royaltyPayeeAcct",
+      message: "Enter royalty payee account address",
+    },
+    {
+      type: "date",
+      name: "mintStart",
+      message: "Enter the public minting start time",
+    },
+    {
+      type: "date",
+      name: "mintEnd",
+      message: "Enter the public minting end time",
+    },
+    {
+      type: "confirm",
+      name: "enableWL",
+      message: "Do you want to support whitelist minting?",
+    },
+    {
+      type: (prev: any) => {
+        enableWL = prev;
+        return null;
+      },
+    },
+    {
+      type: () => (enableWL ? "date" : null),
+      name: "wlMintStart",
+      message: "Enter the whitelist minting start time",
+    },
+    {
+      type: () => (enableWL ? "date" : null),
+      name: "wlMintEnd",
+      message: "Enter the whitelist minting end time",
+    },
+    {
+      type: () => (enableWL ? "number" : null),
+      name: "wlPrice",
+      message: "Enter the whitelist minting price in octas",
+    },
+  ];
+
+  const response = await prompts(questions as any);
+  const [configBuf, collectionBuf, tokenBuf] = await Promise.all([
+    fs.promises.readFile(`${__dirname}/templates/config.json`),
+    fs.promises.readFile(`${__dirname}/templates/collection.json`),
+    fs.promises.readFile(`${__dirname}/templates/token.json`),
+  ]);
+
+  const configJson = JSON.parse(configBuf.toString("utf8"));
+  const collectionJson = JSON.parse(collectionBuf.toString("utf8"));
+  const tokenJson = JSON.parse(tokenBuf.toString("utf8"));
+
+  const outJson = {
+    ...configJson,
+    collection: {
+      ...collectionJson,
+    },
+    tokens: [],
+  };
+
+  outJson.collection.name = response.collectionName;
+  outJson.collection.description = response.collectionDescription;
+  outJson.mint_start = response.mintStart;
+  outJson.mint_end = response.mintEnd;
+  outJson.royalty_points_numerator = response.royaltyPercent;
+  outJson.royalty_points_denominator = 100;
+  outJson.royalty_payee_account = response.royaltyPayeeAcct;
+
+  if (enableWL) {
+    outJson.whitelist_mint_start = response.wlMintStart;
+    outJson.whitelist_mint_end = response.wlMintEnd;
+    outJson.whitelist_mint_price = response.wlPrice;
+  }
+
+  const jsonFiles = await globby(`${assetPath}/json/*.json`);
+
+  jsonFiles.forEach((p) => {
+    if (path.basename(p) === "_metadata.json") return;
+
+    const buf = fs.readFileSync(p);
+    const json = JSON.parse(buf.toString("utf8"));
+
+    const token = {
+      ...tokenJson,
+    };
+
+    token.name = json.name;
+    token.description = json.description;
+    token.file_path = json.image;
+    token.metadata.attributes = json.attributes ?? [];
+    token.supply = 1;
+    token.royalty_points_denominator = outJson.royalty_points_denominator;
+    token.royalty_points_numerator = outJson.royalty_points_numerator;
+
+    outJson.tokens.push(token);
+  });
+
+  await fs.promises.writeFile(
+    `${fullPath}/config.json`,
+    JSON.stringify(outJson, null, 4),
+    "utf8",
+  );
 }
 
 /**
@@ -59,11 +199,12 @@ async function checkHashLipsAsset(assetPath: string) {
 
     const buf = await fs.promises.readFile(p);
     const json = JSON.parse(buf.toString("utf8"));
-    invariant(json.name?.length > 0, `"name" cannot be empty in ${p}`);
-    invariant(
-      json.description?.length > 0,
-      `"description" cannot be empty in ${p}`,
-    );
+    if (!json.name?.length) {
+      exitWithError(`"name" cannot be empty in ${p}`);
+    }
+    if (!json.description?.length) {
+      exitWithError(`"description" cannot be empty in ${p}`);
+    }
   });
 }
 
@@ -74,7 +215,9 @@ async function run() {
   }
 
   if (args.init) {
-    checkHashLipsAsset(args["<asset_path>"]);
+    const [projectName, assetPath] = [args["--name"], args["--asset-path"]];
+    await checkHashLipsAsset(assetPath);
+    await initProject(projectName, assetPath);
   }
 }
 
