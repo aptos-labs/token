@@ -2,13 +2,22 @@
 name = "Examples"
 version = "0.0.0"
 
-[dependencies]
-AptosFramework = { local = "../../framework/aptos-framework" }
-AptosToken = { local = "../../framework/aptos-token" }
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'testnet'
+subdir = 'aptos-move/framework/aptos-framework'
+
+[dependencies.AptosToken]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'testnet'
+subdir = 'aptos-move/framework/aptos-token'
+
+[dependencies.DataStructures]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'testnet'
+subdir = 'aptos-move/move-examples/data_structures'
 
 [addresses]
 aptos_framework = "0x1"
 # change it to the actual source address when publishing the module
 source_addr = "0xcafe"
-# change it to the actual admin address when publishing the module
-admin_addr = "0xad"
