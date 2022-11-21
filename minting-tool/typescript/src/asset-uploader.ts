@@ -13,20 +13,28 @@ export interface AssetUploader {
 export class BundlrUploader implements AssetUploader {
   provider: string;
 
-  bundlrUrl: string = "https://devnet.bundlr.network";
-
   bundlrPromise: Promise<NodeBundlr>;
 
   account: AptosAccount;
 
-  constructor(account: AptosAccount) {
+  constructor(
+    account: AptosAccount,
+    config: {
+      bundlrUrl: string;
+      aptosFullNodeUrl: string;
+    } = {
+      bundlrUrl: "https://devnet.bundlr.network",
+      aptosFullNodeUrl: "https://fullnode.testnet.aptoslabs.com/v1",
+    },
+  ) {
     this.provider = "bundlr";
     this.account = account;
     const signingFunction = async (msg: Uint8Array) =>
       this.account.signBuffer(msg).toUint8Array();
 
     this.bundlrPromise = Bundlr.init({
-      url: this.bundlrUrl,
+      url: config.bundlrUrl,
+      providerUrl: config.aptosFullNodeUrl,
       currency: "aptos",
       publicKey: this.account.pubKey().toString(),
       signingFunction,
