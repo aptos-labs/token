@@ -1,0 +1,248 @@
+{
+    "royalty_payee_account": "0xbd91953020cec28baaa3f3b283b1bebb78e378e9c0810a3051faa2b1a971e513",
+    "royalty_points_denominator": 100,
+    "royalty_points_numerator": 6,
+    "mint_start": "2022-11-21T23:04:25.246Z",
+    "mint_end": "2022-11-21T23:04:29.357Z",
+    "whitelist_mint_start": "2022-11-21T23:04:36.203Z",
+    "whitelist_mint_end": "2022-11-21T23:04:36.928Z",
+    "whitelist_mint_price": 10000,
+    "collection": {
+        "name": "bored apes",
+        "description": "just bored apes",
+        "cover": "",
+        "metadata": {
+            "attributes": [],
+            "properties": {}
+        },
+        "maximum": 0,
+        "mutability_config": []
+    },
+    "tokens": [
+        {
+            "name": "Your Collection #1",
+            "description": "Remember to replace this description",
+            "file_path": "ipfs://NewUriToReplace/1.png",
+            "metadata": {
+                "attributes": [
+                    {
+                        "trait_type": "Background",
+                        "value": "Black"
+                    },
+                    {
+                        "trait_type": "Eyeball",
+                        "value": "Red"
+                    },
+                    {
+                        "trait_type": "Eye color",
+                        "value": "Yellow"
+                    },
+                    {
+                        "trait_type": "Iris",
+                        "value": "Medium"
+                    },
+                    {
+                        "trait_type": "Shine",
+                        "value": "Shapes"
+                    },
+                    {
+                        "trait_type": "Bottom lid",
+                        "value": "Middle"
+                    },
+                    {
+                        "trait_type": "Top lid",
+                        "value": "Middle"
+                    }
+                ],
+                "properties": {}
+            },
+            "supply": 1,
+            "royalty_creator_weights": {},
+            "royalty_points_denominator": 100,
+            "royalty_points_numerator": 6,
+            "royalty_payee_account": "",
+            "token_mutate_setting": [],
+            "property_map": {}
+        },
+        {
+            "name": "Your Collection #2",
+            "description": "Remember to replace this description",
+            "file_path": "ipfs://NewUriToReplace/2.png",
+            "metadata": {
+                "attributes": [
+                    {
+                        "trait_type": "Background",
+                        "value": "Black"
+                    },
+                    {
+                        "trait_type": "Eyeball",
+                        "value": "Red"
+                    },
+                    {
+                        "trait_type": "Eye color",
+                        "value": "Yellow"
+                    },
+                    {
+                        "trait_type": "Iris",
+                        "value": "Medium"
+                    },
+                    {
+                        "trait_type": "Shine",
+                        "value": "Shapes"
+                    },
+                    {
+                        "trait_type": "Bottom lid",
+                        "value": "Middle"
+                    },
+                    {
+                        "trait_type": "Top lid",
+                        "value": "Middle"
+                    }
+                ],
+                "properties": {}
+            },
+            "supply": 1,
+            "royalty_creator_weights": {},
+            "royalty_points_denominator": 100,
+            "royalty_points_numerator": 6,
+            "royalty_payee_account": "",
+            "token_mutate_setting": [],
+            "property_map": {}
+        },
+        {
+            "name": "Your Collection #3",
+            "description": "Remember to replace this description",
+            "file_path": "ipfs://NewUriToReplace/3.png",
+            "metadata": {
+                "attributes": [
+                    {
+                        "trait_type": "Background",
+                        "value": "Black"
+                    },
+                    {
+                        "trait_type": "Eyeball",
+                        "value": "Red"
+                    },
+                    {
+                        "trait_type": "Eye color",
+                        "value": "Yellow"
+                    },
+                    {
+                        "trait_type": "Iris",
+                        "value": "Medium"
+                    },
+                    {
+                        "trait_type": "Shine",
+                        "value": "Shapes"
+                    },
+                    {
+                        "trait_type": "Bottom lid",
+                        "value": "Middle"
+                    },
+                    {
+                        "trait_type": "Top lid",
+                        "value": "Middle"
+                    }
+                ],
+                "properties": {}
+            },
+            "supply": 1,
+            "royalty_creator_weights": {},
+            "royalty_points_denominator": 100,
+            "royalty_points_numerator": 6,
+            "royalty_payee_account": "",
+            "token_mutate_setting": [],
+            "property_map": {}
+        },
+        {
+            "name": "Your Collection #4",
+            "description": "Remember to replace this description",
+            "file_path": "ipfs://NewUriToReplace/4.png",
+            "metadata": {
+                "attributes": [
+                    {
+                        "trait_type": "Background",
+                        "value": "Black"
+                    },
+                    {
+                        "trait_type": "Eyeball",
+                        "value": "Red"
+                    },
+                    {
+                        "trait_type": "Eye color",
+                        "value": "Yellow"
+                    },
+                    {
+                        "trait_type": "Iris",
+                        "value": "Medium"
+                    },
+                    {
+                        "trait_type": "Shine",
+                        "value": "Shapes"
+                    },
+                    {
+                        "trait_type": "Bottom lid",
+                        "value": "Middle"
+                    },
+                    {
+                        "trait_type": "Top lid",
+                        "value": "Middle"
+                    }
+                ],
+                "properties": {}
+            },
+            "supply": 1,
+            "royalty_creator_weights": {},
+            "royalty_points_denominator": 100,
+            "royalty_points_numerator": 6,
+            "royalty_payee_account": "",
+            "token_mutate_setting": [],
+            "property_map": {}
+        },
+        {
+            "name": "Your Collection #5",
+            "description": "Remember to replace this description",
+            "file_path": "ipfs://NewUriToReplace/5.png",
+            "metadata": {
+                "attributes": [
+                    {
+                        "trait_type": "Background",
+                        "value": "Black"
+                    },
+                    {
+                        "trait_type": "Eyeball",
+                        "value": "Red"
+                    },
+                    {
+                        "trait_type": "Eye color",
+                        "value": "Yellow"
+                    },
+                    {
+                        "trait_type": "Iris",
+                        "value": "Medium"
+                    },
+                    {
+                        "trait_type": "Shine",
+                        "value": "Shapes"
+                    },
+                    {
+                        "trait_type": "Bottom lid",
+                        "value": "Middle"
+                    },
+                    {
+                        "trait_type": "Top lid",
+                        "value": "Middle"
+                    }
+                ],
+                "properties": {}
+            },
+            "supply": 1,
+            "royalty_creator_weights": {},
+            "royalty_points_denominator": 100,
+            "royalty_points_numerator": 6,
+            "royalty_payee_account": "",
+            "token_mutate_setting": [],
+            "property_map": {}
+        }
+    ]
+}

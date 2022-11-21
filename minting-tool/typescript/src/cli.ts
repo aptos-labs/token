@@ -7,12 +7,18 @@ import chalk from "chalk";
 import globby from "globby";
 import path from "path";
 import prompts from "prompts";
+import Bundlr from "@bundlr-network/client";
 
+import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
+import { BundlrUploader, BUNDLR_URL } from "./asset-uploader";
 
 const doc = `
 Usage:
   aptos-mint init --name=<name> --asset-path=<asset-path>
+  aptos-mint fund --private-key=<private-key> --amount=<octas>
+  aptos-mint balance --address=<address>
+  aptos-mint upload --project-path=<project-path>
   aptos-mint -h | --help          Show this.
   aptos-mint --version
 `;
@@ -208,17 +214,60 @@ async function checkHashLipsAsset(assetPath: string) {
   });
 }
 
+function octasToApt(amount: string): string {
+  return (Number.parseInt(amount, 10) / 100000000).toFixed(2);
+}
+
+async function fundBundlr(account: AptosAccount, amount: string) {
+  const questions = [
+    {
+      type: "confirm",
+      name: "continue",
+      message: `Do you want to fund the storage service ${octasToApt(
+        amount,
+      )} APT from account address ${account.address()}`,
+    },
+  ];
+  const response = await prompts(questions as any);
+  if (!response.continue) return;
+
+  const bundlr = new BundlrUploader(account);
+  await bundlr.fund(amount);
+  console.log("The storage service is funded.");
+}
+
+async function getBundlrBalance(accountAddress: MaybeHexString) {
+  const bundlr = await Bundlr.init({
+    url: BUNDLR_URL,
+    currency: "aptos",
+  });
+
+  const balance = await bundlr.getBalance(
+    HexString.ensure(accountAddress).hex(),
+  );
+  console.log(`${balance} OCTAS (${octasToApt(balance.toString())} APTs)`);
+}
+
+// async function uploadProject(projectPath: string) {
+
+// }
+
 async function run() {
   const args = docopt(doc);
   if (args["--version"]) {
     console.log(version);
-    return;
-  }
-
-  if (args.init) {
+  } else if (args.init) {
     const [projectName, assetPath] = [args["--name"], args["--asset-path"]];
     await checkHashLipsAsset(assetPath);
     await initProject(projectName, assetPath);
+  } else if (args.fund) {
+    const [privateKey, amount] = [args["--private-key"], args["--amount"]];
+    await fundBundlr(
+      new AptosAccount(new HexString(privateKey).toUint8Array()),
+      amount,
+    );
+  } else if (args.balance) {
+    await getBundlrBalance(args["--address"]);
   }
 }
 

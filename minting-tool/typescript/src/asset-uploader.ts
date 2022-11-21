@@ -3,6 +3,9 @@ import NodeBundlr from "@bundlr-network/client/build/node/bundlr";
 import { AptosAccount } from "aptos";
 import BigNumber from "bignumber.js";
 
+export const BUNDLR_URL = "https://devnet.bundlr.network";
+export const APTOS_FULL_NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1";
+
 export interface AssetUploader {
   provider: string;
 
@@ -23,8 +26,8 @@ export class BundlrUploader implements AssetUploader {
       bundlrUrl: string;
       aptosFullNodeUrl: string;
     } = {
-      bundlrUrl: "https://devnet.bundlr.network",
-      aptosFullNodeUrl: "https://fullnode.testnet.aptoslabs.com/v1",
+      bundlrUrl: BUNDLR_URL,
+      aptosFullNodeUrl: APTOS_FULL_NODE_URL,
     },
   ) {
     this.provider = "bundlr";
