@@ -212,6 +212,7 @@ async function run() {
   const args = docopt(doc);
   if (args["--version"]) {
     console.log(version);
+    return;
   }
 
   if (args.init) {
