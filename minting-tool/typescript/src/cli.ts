@@ -1,0 +1,224 @@
+#!/usr/bin/env node
+
+import { docopt } from "docopt";
+import fs from "fs";
+import { exit } from "process";
+import chalk from "chalk";
+import globby from "globby";
+import path from "path";
+import prompts from "prompts";
+
+import { version } from "../package.json";
+
+const doc = `
+Usage:
+  aptos-mint init --name=<name> --asset-path=<asset-path>
+  aptos-mint -h | --help          Show this.
+  aptos-mint --version
+`;
+
+function exitWithError(message: string) {
+  console.error(chalk.red(message));
+  exit(1);
+}
+
+async function initProject(name: string, assetPath: string) {
+  const fullPath = `./${name}`;
+  if (fs.existsSync(fullPath)) {
+    exitWithError(`${fullPath} already exists.`);
+  }
+  fs.mkdirSync(fullPath, { recursive: true });
+
+  const configPath = `${fullPath}/config.json`;
+  if (fs.existsSync(configPath)) {
+    exitWithError(`${configPath} already exists.`);
+  }
+
+  fs.mkdirSync(fullPath, { recursive: true });
+
+  let enableWL = false;
+
+  const questions = [
+    {
+      type: "text",
+      name: "collectionName",
+      message: "What is the collection name?",
+      validate: (value: string) =>
+        value.length === 0 ? "Collection name cannot be empty" : true,
+    },
+    {
+      type: "text",
+      name: "collectionDescription",
+      message: "What is the collection description?",
+    },
+    {
+      type: "number",
+      name: "royaltyPercent",
+      message: "Enter royalty percentage. e.g. 5 represents 5%",
+    },
+    {
+      type: "text",
+      name: "royaltyPayeeAcct",
+      message: "Enter royalty payee account address",
+    },
+    {
+      type: "date",
+      name: "mintStart",
+      message: "Enter the public minting start time",
+    },
+    {
+      type: "date",
+      name: "mintEnd",
+      message: "Enter the public minting end time",
+    },
+    {
+      type: "confirm",
+      name: "enableWL",
+      message: "Do you want to support whitelist minting?",
+    },
+    {
+      type: (prev: any) => {
+        enableWL = prev;
+        return null;
+      },
+    },
+    {
+      type: () => (enableWL ? "date" : null),
+      name: "wlMintStart",
+      message: "Enter the whitelist minting start time",
+    },
+    {
+      type: () => (enableWL ? "date" : null),
+      name: "wlMintEnd",
+      message: "Enter the whitelist minting end time",
+    },
+    {
+      type: () => (enableWL ? "number" : null),
+      name: "wlPrice",
+      message: "Enter the whitelist minting price in octas",
+    },
+  ];
+
+  const response = await prompts(questions as any);
+  const [configBuf, collectionBuf, tokenBuf] = await Promise.all([
+    fs.promises.readFile(`${__dirname}/templates/config.json`),
+    fs.promises.readFile(`${__dirname}/templates/collection.json`),
+    fs.promises.readFile(`${__dirname}/templates/token.json`),
+  ]);
+
+  const configJson = JSON.parse(configBuf.toString("utf8"));
+  const collectionJson = JSON.parse(collectionBuf.toString("utf8"));
+  const tokenJson = JSON.parse(tokenBuf.toString("utf8"));
+
+  const outJson = {
+    ...configJson,
+    collection: {
+      ...collectionJson,
+    },
+    tokens: [],
+  };
+
+  outJson.collection.name = response.collectionName;
+  outJson.collection.description = response.collectionDescription;
+  outJson.mint_start = response.mintStart;
+  outJson.mint_end = response.mintEnd;
+  outJson.royalty_points_numerator = response.royaltyPercent;
+  outJson.royalty_points_denominator = 100;
+  outJson.royalty_payee_account = response.royaltyPayeeAcct;
+
+  if (enableWL) {
+    outJson.whitelist_mint_start = response.wlMintStart;
+    outJson.whitelist_mint_end = response.wlMintEnd;
+    outJson.whitelist_mint_price = response.wlPrice;
+  }
+
+  const jsonFiles = await globby(`${assetPath}/json/*.json`);
+
+  jsonFiles.forEach((p) => {
+    if (path.basename(p) === "_metadata.json") return;
+
+    const buf = fs.readFileSync(p);
+    const json = JSON.parse(buf.toString("utf8"));
+
+    const token = {
+      ...tokenJson,
+    };
+
+    token.name = json.name;
+    token.description = json.description;
+    token.file_path = json.image;
+    token.metadata.attributes = json.attributes ?? [];
+    token.supply = 1;
+    token.royalty_points_denominator = outJson.royalty_points_denominator;
+    token.royalty_points_numerator = outJson.royalty_points_numerator;
+
+    outJson.tokens.push(token);
+  });
+
+  await fs.promises.writeFile(
+    `${fullPath}/config.json`,
+    JSON.stringify(outJson, null, 4),
+    "utf8",
+  );
+}
+
+/**
+ * Verify that a path contains the required asset and metadata files
+ * @param assetPath the build output path of HashLips
+ */
+async function checkHashLipsAsset(assetPath: string) {
+  if (!fs.existsSync(assetPath)) {
+    exitWithError(`"${assetPath}" is not a valid path.`);
+  }
+
+  // We first check "images" and "json" directories exist
+
+  if (!fs.existsSync(`${assetPath}/images`)) {
+    exitWithError(`Directory "${assetPath}/images" doesn't exist.`);
+  }
+
+  if (!fs.existsSync(`${assetPath}/json`)) {
+    exitWithError(`Directory "${assetPath}/json" doesn't exist.`);
+  }
+
+  // Check that if every image file has a corresponding json file
+  const images = await globby(`${assetPath}/images/*.png`); // only png files are supported
+  const jsonFiles = await globby(`${assetPath}/json/*.json`);
+  const jsonSet = new Set();
+  jsonFiles.forEach((p) => jsonSet.add(path.basename(p, ".json")));
+  images.forEach((p) => {
+    if (!jsonSet.has(path.basename(p, ".png"))) {
+      // eslint-disable-next-line quotes
+      exitWithError('"images" and "json" files don\'t match.');
+    }
+  });
+
+  // Check the json file format
+  jsonFiles.forEach(async (p) => {
+    if (path.basename(p) === "_metadata.json") return;
+
+    const buf = await fs.promises.readFile(p);
+    const json = JSON.parse(buf.toString("utf8"));
+    if (!json.name?.length) {
+      exitWithError(`"name" cannot be empty in ${p}`);
+    }
+    if (!json.description?.length) {
+      exitWithError(`"description" cannot be empty in ${p}`);
+    }
+  });
+}
+
+async function run() {
+  const args = docopt(doc);
+  if (args["--version"]) {
+    console.log(version);
+  }
+
+  if (args.init) {
+    const [projectName, assetPath] = [args["--name"], args["--asset-path"]];
+    await checkHashLipsAsset(assetPath);
+    await initProject(projectName, assetPath);
+  }
+}
+
+run();

@@ -1,22 +1,22 @@
-import { HexString, TxnBuilderTypes } from 'aptos';
+import { HexString, TxnBuilderTypes } from "aptos";
 
 declare type PropertyMap = { [key: string]: [type: string, value: any] };
 
 export function getMutabilityConfig(
   config: any,
-  expectedNumber: number
+  expectedNumber: number,
 ): boolean[] {
   if (config === undefined) {
     return new Array(expectedNumber).fill(false);
-  } else {
-    return (config as boolean[]).length == expectedNumber
-      ? config
-      : new Array(expectedNumber).fill(false);
   }
+  return (config as boolean[]).length === expectedNumber
+    ? config
+    : new Array(expectedNumber).fill(false);
 }
 
 export class RoyaltyConfig {
   public creators: [TxnBuilderTypes.AccountAddress, number][];
+
   constructor(creators: [TxnBuilderTypes.AccountAddress, number][]) {
     this.creators = creators;
   }
@@ -24,11 +24,17 @@ export class RoyaltyConfig {
 
 export class CollectionData {
   public name: string;
+
   public filePath: string;
+
   public assetMetadata: string;
+
   public description: string;
+
   public supply: number;
+
   public maximum: number;
+
   public mutate_config: boolean[];
 
   constructor(
@@ -38,12 +44,12 @@ export class CollectionData {
     description: string,
     supply: number,
     maximum: number,
-    mutateConfig: boolean[]
+    mutateConfig: boolean[],
   ) {
-    this.name = name || '';
-    this.filePath = filePath || '';
-    this.assetMetadata = assetMetadata || '';
-    this.description = description || '';
+    this.name = name || "";
+    this.filePath = filePath || "";
+    this.assetMetadata = assetMetadata || "";
+    this.description = description || "";
     this.supply = supply || 0;
     this.maximum = maximum || 0;
     this.mutate_config = getMutabilityConfig(mutateConfig, 3);
@@ -52,16 +58,27 @@ export class CollectionData {
 
 export class TokenData {
   public name: string;
+
   public filePath: string;
+
   public assetMetadata: string;
+
   public description: string;
+
   public supply: number;
+
   public royaltyWeights: RoyaltyConfig;
+
   public maximum: number;
+
   public defaultProperties: PropertyMap;
+
   public mutateConfig: boolean[];
+
   public royaltyNumerator: number;
+
   public royaltyDenominator: number;
+
   public royaltyPayeeAccount: HexString;
 
   constructor(
@@ -76,12 +93,12 @@ export class TokenData {
     properties: PropertyMap,
     royaltyNumerator: number,
     royaltyDenominator: number,
-    royaltyPayeeAccount: HexString
+    royaltyPayeeAccount: HexString,
   ) {
-    this.name = name || '';
-    this.filePath = filePath || '';
-    this.assetMetadata = assetMetadata || '';
-    this.description = description || '';
+    this.name = name || "";
+    this.filePath = filePath || "";
+    this.assetMetadata = assetMetadata || "";
+    this.description = description || "";
     this.royaltyWeights = royaltyWeights; // if cannot get right value, leave to be undefined
     this.supply = supply || 0;
     this.maximum = maximum || 0;
@@ -95,8 +112,11 @@ export class TokenData {
 
 export class Token {
   public tokenData: TokenData;
+
   public propertyVersion: number;
+
   public amount: number;
+
   constructor(tokenData: TokenData, propertyVersion: number, amount: number) {
     this.tokenData = tokenData;
     this.propertyVersion = propertyVersion || 0;
@@ -106,7 +126,9 @@ export class Token {
 
 export class CollectionConfig {
   public collectionData: CollectionData;
+
   public tokens: Token[];
+
   constructor(collectionData: CollectionData, tokens: Token[]) {
     this.collectionData = collectionData;
     this.tokens = tokens;

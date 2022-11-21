@@ -12,5 +12,6 @@ export class TokenSDK {
    * @param {string} url
    * @return {*}
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   initConfig(id: string, url: string) {}
 }

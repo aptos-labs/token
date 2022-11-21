@@ -1,0 +1,10 @@
+{
+  "royalty_payee_account": "",
+  "royalty_points_denominator": 100,
+  "royalty_points_numerator": -1,
+  "mint_start": null,
+  "mint_end": null,
+  "whitelist_mint_start": null,
+  "whitelist_mint_end": null,
+  "whitelist_mint_price": null
+}
