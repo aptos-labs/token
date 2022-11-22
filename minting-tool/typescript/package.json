@@ -33,7 +33,6 @@
     "bignumber.js": "^9.1.0",
     "canonicalize": "^1.0.8",
     "chalk": "4.1.2",
-    "crypto": "^1.0.1",
     "docopt": "^0.6.2",
     "globby": "11.0.4",
     "prompts": "^2.4.2",
