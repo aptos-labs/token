@@ -8,17 +8,23 @@ import globby from "globby";
 import path from "path";
 import prompts from "prompts";
 import Bundlr from "@bundlr-network/client";
+import untildify from "untildify";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
-import { BundlrUploader, BUNDLR_URL } from "./asset-uploader";
+import {
+  APTOS_FULL_NODE_URL,
+  BundlrUploader,
+  BUNDLR_URL,
+} from "./asset-uploader";
+import { TokenMill } from "./token-mill";
 
 const doc = `
 Usage:
   aptos-mint init --name=<name> --asset-path=<asset-path>
   aptos-mint fund --private-key=<private-key> --amount=<octas>
   aptos-mint balance --address=<address>
-  aptos-mint upload --project-path=<project-path>
+  aptos-mint mint --private-key=<private-key> [--project-path=<project-path>]
   aptos-mint -h | --help          Show this.
   aptos-mint --version
 `;
@@ -26,6 +32,10 @@ Usage:
 function exitWithError(message: string) {
   console.error(chalk.red(message));
   exit(1);
+}
+
+function resolvePath(p: string, ...rest: string[]): string {
+  return path.resolve(untildify(p), ...rest);
 }
 
 async function initProject(name: string, assetPath: string) {
@@ -56,6 +66,16 @@ async function initProject(name: string, assetPath: string) {
       type: "text",
       name: "collectionDescription",
       message: "What is the collection description?",
+    },
+    {
+      type: "text",
+      name: "collectionCover",
+      message: "Enter the collection cover path",
+    },
+    {
+      type: "number",
+      name: "collectionMaximum",
+      message: "Maximum tokens in the collection",
     },
     {
       type: "number",
@@ -117,6 +137,7 @@ async function initProject(name: string, assetPath: string) {
   const tokenJson = JSON.parse(tokenBuf.toString("utf8"));
 
   const outJson = {
+    assetPath,
     ...configJson,
     collection: {
       ...collectionJson,
@@ -126,6 +147,9 @@ async function initProject(name: string, assetPath: string) {
 
   outJson.collection.name = response.collectionName;
   outJson.collection.description = response.collectionDescription;
+  outJson.collection.file_path = resolvePath(response.collectionCover);
+  outJson.collection.maximum = response.collectionMaximum;
+
   outJson.mint_start = response.mintStart;
   outJson.mint_end = response.mintEnd;
   outJson.royalty_points_numerator = response.royaltyPercent;
@@ -152,7 +176,11 @@ async function initProject(name: string, assetPath: string) {
 
     token.name = json.name;
     token.description = json.description;
-    token.file_path = json.image;
+    token.file_path = resolvePath(
+      assetPath,
+      "images",
+      `${path.basename(p, ".json")}.png`,
+    );
     token.metadata.attributes = json.attributes ?? [];
     token.supply = 1;
     token.royalty_points_denominator = outJson.royalty_points_denominator;
@@ -268,6 +296,23 @@ async function run() {
     );
   } else if (args.balance) {
     await getBundlrBalance(args["--address"]);
+  } else if (args.mint) {
+    const account = new AptosAccount(
+      new HexString(args["--private-key"]).toUint8Array(),
+    );
+
+    const projectPath = args["--project-path"];
+
+    const uploader = new BundlrUploader(account);
+
+    const mill = new TokenMill(
+      projectPath ?? ".",
+      account,
+      APTOS_FULL_NODE_URL,
+      uploader,
+    );
+
+    await mill.run();
   }
 }
 
