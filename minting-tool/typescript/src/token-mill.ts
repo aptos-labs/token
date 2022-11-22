@@ -256,6 +256,9 @@ export class TokenMill {
     await fs.promises.writeFile(metaPath, canonicalizedMeta);
 
     const jsonId = await this.uploader.uploadFile(metaPath);
+
+    // Now we can remove the temp folder
+    await fs.promises.rm(tmp, { recursive: true });
     return [this.createArweaveURLfromId(jsonId), this.hash(canonicalizedMeta)];
   }
 

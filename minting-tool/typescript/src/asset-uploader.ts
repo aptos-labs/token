@@ -3,8 +3,11 @@ import NodeBundlr from "@bundlr-network/client/build/node/bundlr";
 import { AptosAccount } from "aptos";
 import BigNumber from "bignumber.js";
 
-export const BUNDLR_URL = "https://devnet.bundlr.network";
-export const APTOS_FULL_NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1";
+export const BUNDLR_URL =
+  process.env.BUNDLR_URL || "https://devnet.bundlr.network";
+export const APTOS_FULL_NODE_URL =
+  process.env.APTOS_FULL_NODE_URL ||
+  "https://fullnode.testnet.aptoslabs.com/v1";
 
 export interface AssetUploader {
   provider: string;
