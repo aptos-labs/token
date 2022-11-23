@@ -12,22 +12,40 @@ import untildify from "untildify";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
-import {
-  APTOS_FULL_NODE_URL,
-  BundlrUploader,
-  BUNDLR_URL,
-} from "./asset-uploader";
+import { BundlrUploader } from "./asset-uploader";
 import { TokenMill } from "./token-mill";
+import {
+  detectNetwork,
+  MAINNET_APTOS_URL,
+  MAINNET_BUNDLR_URL,
+  TESTNET_APTOS_URL,
+  TESTNET_BUNDLR_URL,
+} from "./utils";
 
 const doc = `
 Usage:
   aptos-mint init --name=<name> --asset-path=<asset-path>
-  aptos-mint fund --private-key=<private-key> --amount=<octas>
-  aptos-mint balance --address=<address>
-  aptos-mint mint --private-key=<private-key> [--project-path=<project-path>]
+  aptos-mint fund --private-key=<private-key> --amount=<octas> [--network=<network>]
+  aptos-mint balance --address=<address> [--network=<network>]
+  aptos-mint mint --private-key=<private-key> [--project-path=<project-path>] [--network=<network>]
   aptos-mint -h | --help          Show this.
   aptos-mint --version
 `;
+
+async function resolveNetwork(
+  network: string | null | undefined,
+  address: MaybeHexString,
+): Promise<"mainnet" | "testnet"> {
+  const n = network ?? (await detectNetwork(address));
+
+  if (n !== "mainnet" && n !== "testnet") {
+    throw new Error(
+      `Invalid network value ${n}. Only "mainnet" and "testnet" are supported.`,
+    );
+  }
+
+  return n;
+}
 
 function exitWithError(message: string) {
   console.error(chalk.red(message));
@@ -246,7 +264,11 @@ function octasToApt(amount: string): string {
   return (Number.parseInt(amount, 10) / 100000000).toFixed(2);
 }
 
-async function fundBundlr(account: AptosAccount, amount: string) {
+async function fundBundlr(
+  account: AptosAccount,
+  amount: string,
+  network: string | null | undefined,
+) {
   const questions = [
     {
       type: "confirm",
@@ -259,14 +281,23 @@ async function fundBundlr(account: AptosAccount, amount: string) {
   const response = await prompts(questions as any);
   if (!response.continue) return;
 
-  const bundlr = new BundlrUploader(account);
+  const targetNetwork = await resolveNetwork(network, account.address());
+
+  const bundlr = new BundlrUploader(account, targetNetwork);
   await bundlr.fund(amount);
   console.log("The storage service is funded.");
 }
 
-async function getBundlrBalance(accountAddress: MaybeHexString) {
+async function getBundlrBalance(
+  accountAddress: MaybeHexString,
+  network: string | null | undefined,
+) {
+  const targetNetwork = await resolveNetwork(network, accountAddress);
+
+  const bundlrUrl =
+    targetNetwork === "mainnet" ? MAINNET_BUNDLR_URL : TESTNET_BUNDLR_URL;
   const bundlr = await Bundlr.init({
-    url: BUNDLR_URL,
+    url: bundlrUrl,
     currency: "aptos",
   });
 
@@ -289,13 +320,18 @@ async function run() {
     await checkHashLipsAsset(assetPath);
     await initProject(projectName, assetPath);
   } else if (args.fund) {
-    const [privateKey, amount] = [args["--private-key"], args["--amount"]];
+    const [privateKey, amount, network] = [
+      args["--private-key"],
+      args["--amount"],
+      args["--network"],
+    ];
     await fundBundlr(
       new AptosAccount(new HexString(privateKey).toUint8Array()),
       amount,
+      network,
     );
   } else if (args.balance) {
-    await getBundlrBalance(args["--address"]);
+    await getBundlrBalance(args["--address"], args["--network"]);
   } else if (args.mint) {
     const account = new AptosAccount(
       new HexString(args["--private-key"]).toUint8Array(),
@@ -303,12 +339,17 @@ async function run() {
 
     const projectPath = args["--project-path"];
 
-    const uploader = new BundlrUploader(account);
+    const targetNetwork = await resolveNetwork(
+      args["--network"],
+      account.address(),
+    );
+
+    const uploader = new BundlrUploader(account, targetNetwork);
 
     const mill = new TokenMill(
       projectPath ?? ".",
       account,
-      APTOS_FULL_NODE_URL,
+      targetNetwork === "mainnet" ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
       uploader,
     );
 
