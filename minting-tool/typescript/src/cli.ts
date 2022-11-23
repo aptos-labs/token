@@ -9,6 +9,7 @@ import path from "path";
 import prompts from "prompts";
 import Bundlr from "@bundlr-network/client";
 import untildify from "untildify";
+import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
@@ -25,6 +26,7 @@ import {
 const doc = `
 Usage:
   aptos-mint init --name=<name> --asset-path=<asset-path>
+  aptos-mint validate [--project-path=<project-path>] [--check-asset-hashes]
   aptos-mint fund --private-key=<private-key> --amount=<octas> [--network=<network>]
   aptos-mint balance --address=<address> [--network=<network>]
   aptos-mint mint --private-key=<private-key> [--project-path=<project-path>] [--network=<network>]
@@ -89,11 +91,6 @@ async function initProject(name: string, assetPath: string) {
       type: "text",
       name: "collectionCover",
       message: "Enter the collection cover path",
-    },
-    {
-      type: "number",
-      name: "collectionMaximum",
-      message: "Maximum tokens in the collection",
     },
     {
       type: "number",
@@ -166,7 +163,6 @@ async function initProject(name: string, assetPath: string) {
   outJson.collection.name = response.collectionName;
   outJson.collection.description = response.collectionDescription;
   outJson.collection.file_path = resolvePath(response.collectionCover);
-  outJson.collection.maximum = response.collectionMaximum;
 
   outJson.mint_start = response.mintStart;
   outJson.mint_end = response.mintEnd;
@@ -307,9 +303,124 @@ async function getBundlrBalance(
   console.log(`${balance} OCTAS (${octasToApt(balance.toString())} APTs)`);
 }
 
-// async function uploadProject(projectPath: string) {
+function validateProject(
+  projectPath: string,
+  print: boolean,
+  checkAssetHashes: boolean = false,
+): boolean {
+  const configBuf = fs.readFileSync(path.join(projectPath, "config.json"));
 
-// }
+  const config = JSON.parse(configBuf.toString("utf8"));
+  const { collection } = config;
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (config?.royalty_points_numerator <= 0) {
+    // eslint-disable-next-line quotes
+    warnings.push('Did you forget to set "royalty_points_numerator".');
+  }
+
+  if (!config?.royalty_payee_account) {
+    // eslint-disable-next-line quotes
+    warnings.push('Did you forget to set "royalty_payee_account".');
+  }
+
+  if (
+    config.mint_start &&
+    config.mint_end &&
+    new Date(config.mint_end) <= new Date(config.mint_start)
+  ) {
+    // eslint-disable-next-line quotes
+    errors.push('"mint_end" should not be earlier than "mint_start".');
+  }
+
+  if (
+    config.whitelist_mint_start &&
+    config.whitelist_mint_end &&
+    new Date(config.whitelist_mint_end) <= new Date(config.whitelist_mint_start)
+  ) {
+    errors.push(
+      // eslint-disable-next-line quotes
+      '"whitelist_mint_end" should not be earlier than "whitelist_mint_start".',
+    );
+  }
+
+  if (!collection?.name) {
+    errors.push("Collection name cannot be empty.");
+  }
+
+  if (!collection?.file_path) {
+    errors.push("Collection has no cover image.");
+  } else if (!fs.existsSync(collection.file_path)) {
+    errors.push(`Collection cover file ${collection.file_path} doesn't exist.`);
+  }
+
+  if (!config.tokens || config.tokens.length === 0) {
+    errors.push("No tokens available for minting.");
+  }
+
+  const tokenNames = new Set();
+  const tokenImages = new Set();
+
+  const assetHashMap = new Map<string, string>();
+
+  config.tokens.forEach((token: any) => {
+    if (!token.name) {
+      errors.push("Token name cannot be empty.");
+    }
+
+    if (tokenNames.has(token.name)) {
+      errors.push(`Duplicated token name ${token.name}.`);
+    } else {
+      tokenNames.add(token.name);
+    }
+
+    if (!token.file_path) {
+      errors.push(`Token ${token.name} has no image.`);
+    } else if (!fs.existsSync(token.file_path)) {
+      errors.push(`Token image ${token.file_path} doesn't exist.`);
+    } else if (tokenImages.has(token.file_path)) {
+      errors.push(`Duplicated token image file ${token.file_path}.`);
+    } else {
+      tokenNames.add(token.file_path);
+    }
+
+    if (token.supply <= 0) {
+      errors.push(`${token.name} "supply" is <= 0`);
+    }
+
+    // Warning! This is going to be really slow.
+    if (checkAssetHashes) {
+      const fbuf = fs.readFileSync(token.file_path);
+      const hash = sha3Hash.create();
+      hash.update(fbuf);
+
+      const hashHex = HexString.fromUint8Array(hash.digest()).hex();
+      if (assetHashMap.has(hashHex)) {
+        console.error(
+          `${token.name} and ${assetHashMap.get(
+            hashHex,
+          )} have the same asset files!`,
+        );
+        exit(1);
+      } else {
+        assetHashMap.set(hashHex, token.name);
+      }
+    }
+  });
+
+  if (print) {
+    errors.forEach((err: string) => console.error(chalk.red(err)));
+    warnings.forEach((warn: string) => console.error(chalk.yellow(warn)));
+
+    if (errors.length === 0 && warnings.length === 0) {
+      console.log(`${projectPath}/config.json passed validation check.`);
+    }
+  }
+
+  return errors.length === 0;
+}
 
 async function run() {
   const args = docopt(doc);
@@ -344,6 +455,8 @@ async function run() {
       account.address(),
     );
 
+    if (!validateProject(projectPath, true)) return;
+
     const uploader = new BundlrUploader(account, targetNetwork);
 
     const mill = new TokenMill(
@@ -354,6 +467,8 @@ async function run() {
     );
 
     await mill.run();
+  } else if (args.validate) {
+    validateProject(args["--project-path"], true, args["--check-asset-hashes"]);
   }
 }
 
