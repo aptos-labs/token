@@ -2,12 +2,12 @@ import Bundlr from "@bundlr-network/client";
 import NodeBundlr from "@bundlr-network/client/build/node/bundlr";
 import { AptosAccount } from "aptos";
 import BigNumber from "bignumber.js";
-
-export const BUNDLR_URL =
-  process.env.BUNDLR_URL || "https://devnet.bundlr.network";
-export const APTOS_FULL_NODE_URL =
-  process.env.APTOS_FULL_NODE_URL ||
-  "https://fullnode.testnet.aptoslabs.com/v1";
+import {
+  MAINNET_APTOS_URL,
+  MAINNET_BUNDLR_URL,
+  TESTNET_APTOS_URL,
+  TESTNET_BUNDLR_URL,
+} from "./utils";
 
 export interface AssetUploader {
   provider: string;
@@ -23,24 +23,16 @@ export class BundlrUploader implements AssetUploader {
 
   account: AptosAccount;
 
-  constructor(
-    account: AptosAccount,
-    config: {
-      bundlrUrl: string;
-      aptosFullNodeUrl: string;
-    } = {
-      bundlrUrl: BUNDLR_URL,
-      aptosFullNodeUrl: APTOS_FULL_NODE_URL,
-    },
-  ) {
+  constructor(account: AptosAccount, network: "mainnet" | "testnet") {
     this.provider = "bundlr";
     this.account = account;
     const signingFunction = async (msg: Uint8Array) =>
       this.account.signBuffer(msg).toUint8Array();
 
     this.bundlrPromise = Bundlr.init({
-      url: config.bundlrUrl,
-      providerUrl: config.aptosFullNodeUrl,
+      url: network === "mainnet" ? MAINNET_BUNDLR_URL : TESTNET_BUNDLR_URL,
+      providerUrl:
+        network === "mainnet" ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
       currency: "aptos",
       publicKey: this.account.pubKey().toString(),
       signingFunction,
