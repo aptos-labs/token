@@ -1,5 +1,5 @@
 [package]
-name = "Examples"
+name = "NFTMint"
 version = "0.0.0"
 
 [dependencies.AptosFramework]
@@ -12,12 +12,12 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-token'
 
-[dependencies.DataStructures]
+[dependencies.DataStructure]
 git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'testnet'
 subdir = 'aptos-move/move-examples/data_structures'
 
 [addresses]
 aptos_framework = "0x1"
-# change it to the actual source address when publishing the module
 source_addr = "0xcafe"
+mint_nft = "0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5"
