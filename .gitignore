@@ -18,3 +18,5 @@ src/test/assets
 .idea
 
 .DS_Store
+
+.aptos
