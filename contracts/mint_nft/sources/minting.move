@@ -4,7 +4,7 @@ module mint_nft::minting {
     use std::string::{Self, String, utf8};
     use std::vector;
 
-    use aptos_framework::account::{Self, SignerCapability, create_signer_with_capability, create_account_for_test};
+    use aptos_framework::account::{Self, SignerCapability, create_signer_with_capability};
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::coin;
     use aptos_framework::event::{Self, EventHandle};
@@ -374,6 +374,8 @@ module mint_nft::minting {
         aptos_framework: &signer,
         timestamp: u64
     ) acquires NFTMintConfig {
+        use aptos_framework::account::create_account_for_test;
+
         // set up global time for testing purpose
         timestamp::set_time_has_started_for_testing(aptos_framework);
         timestamp::update_global_time_for_test_secs(timestamp);
