@@ -12,11 +12,6 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-token'
 
-[dependencies.DataStructure]
-git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'testnet'
-subdir = 'aptos-move/move-examples/data_structures'
-
 [addresses]
 aptos_framework = "0x1"
 source_addr = "_"
