@@ -10,8 +10,8 @@ module mint_nft::minting {
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::resource_account;
     use aptos_framework::timestamp;
-    use aptos_std::bucket_table::{Self, BucketTable, new};
     use aptos_token::token::{Self, TokenMutabilityConfig, create_token_mutability_config, create_collection, create_tokendata, TokenId};
+    use mint_nft::bucket_table::{Self, BucketTable, new};
 
     struct NFTMintConfig has key {
         admin: address,
