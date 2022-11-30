@@ -1,4 +1,4 @@
-import { AptosClient, HexString, MaybeHexString } from "aptos";
+import { AptosClient, HexString, MaybeHexString, BCS } from "aptos";
 
 export const MAINNET_BUNDLR_URL = "https://node1.bundlr.network";
 export const TESTNET_BUNDLR_URL = "https://devnet.bundlr.network";
@@ -25,4 +25,20 @@ export async function detectNetwork(
   throw new Error(
     `Address ${HexString.ensure(address).hex()} cannot be found.`,
   );
+}
+
+export function dateTimeStrToUnixSecs(dateTimeStr: string): number {
+  const date = new Date(dateTimeStr);
+  const timestampInMs = date.getTime();
+  return Math.floor(timestampInMs / 1000);
+}
+
+// Replace with the SDK's implementation
+export function getPropertyValueRaw(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  values: Array<string>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  types: Array<string>,
+): Array<BCS.Bytes> {
+  return [];
 }

@@ -2,10 +2,13 @@
   "name": "",
   "description": "",
   "file_path": "",
+  "token_name_base": "",
+  "token_description": "",
+  "token_mutate_config": [false, false, false, false, false],
   "metadata": {
     "attributes": [],
     "properties": {}
   },
   "maximum": 0,
-  "mutability_config": []
+  "mutability_config": [false, false, false]
 }
