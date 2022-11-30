@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable max-len */
 
 import { docopt } from "docopt";
 import fs from "fs";
@@ -14,7 +15,7 @@ import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
 import { BundlrUploader } from "./asset-uploader";
-import { TokenMill } from "./token-mill";
+import { NFTMint } from "./nft-mint";
 import {
   detectNetwork,
   MAINNET_APTOS_URL,
@@ -29,7 +30,7 @@ Usage:
   aptos-mint validate [--project-path=<project-path>] [--check-asset-hashes]
   aptos-mint fund --private-key=<private-key> --amount=<octas> [--network=<network>]
   aptos-mint balance --address=<address> [--network=<network>]
-  aptos-mint mint --private-key=<private-key> [--project-path=<project-path>] [--network=<network>]
+  aptos-mint upload --private-key=<private-key> --minting-contract=<contract-address> [--project-path=<project-path>] [--network=<network>]
   aptos-mint -h | --help          Show this.
   aptos-mint --version
 `;
@@ -55,6 +56,7 @@ function exitWithError(message: string) {
 }
 
 function resolvePath(p: string, ...rest: string[]): string {
+  if (!p) return "";
   return path.resolve(untildify(p), ...rest);
 }
 
@@ -90,7 +92,19 @@ async function initProject(name: string, assetPath: string) {
     {
       type: "text",
       name: "collectionCover",
-      message: "Enter the collection cover path",
+      message: "Enter the collection cover image path",
+    },
+    {
+      type: "text",
+      name: "tokenNameBase",
+      message:
+        // eslint-disable-next-line max-len
+        "Enter the base name of tokens. Final token names will be derived from the base name by appending sequence numbers",
+    },
+    {
+      type: "text",
+      name: "tokenDescription",
+      message: "Enter the default token description",
     },
     {
       type: "number",
@@ -111,6 +125,11 @@ async function initProject(name: string, assetPath: string) {
       type: "date",
       name: "mintEnd",
       message: "Enter the public minting end time",
+    },
+    {
+      type: "number",
+      name: "mintPrice",
+      message: "Enter the public minting price in octas",
     },
     {
       type: "confirm",
@@ -163,9 +182,12 @@ async function initProject(name: string, assetPath: string) {
   outJson.collection.name = response.collectionName;
   outJson.collection.description = response.collectionDescription;
   outJson.collection.file_path = resolvePath(response.collectionCover);
+  outJson.collection.token_name_base = response.tokenNameBase;
+  outJson.collection.token_description = response.tokenDescription;
 
   outJson.mint_start = response.mintStart;
   outJson.mint_end = response.mintEnd;
+  outJson.mint_price = response.mintPrice;
   outJson.royalty_points_numerator = response.royaltyPercent;
   outJson.royalty_points_denominator = 100;
   outJson.royalty_payee_account = response.royaltyPayeeAcct;
@@ -188,8 +210,6 @@ async function initProject(name: string, assetPath: string) {
       ...tokenJson,
     };
 
-    token.name = json.name;
-    token.description = json.description;
     token.file_path = resolvePath(
       assetPath,
       "images",
@@ -346,6 +366,34 @@ function validateProject(
     );
   }
 
+  if (
+    config.mint_start &&
+    config.whitelist_mint_end &&
+    new Date(config.mint_start) < new Date(config.whitelist_mint_end)
+  ) {
+    errors.push(
+      // eslint-disable-next-line quotes
+      '"whitelist_mint_end" should be earlier than "mint_start".',
+    );
+  }
+
+  if (
+    config.whitelist_mint_start &&
+    new Date(config.whitelist_mint_start) < new Date()
+  ) {
+    errors.push(
+      // eslint-disable-next-line quotes
+      '"whitelist_mint_start" should be a future time.',
+    );
+  }
+
+  if (config.mint_price < config.whitelist_mint_price) {
+    errors.push(
+      // eslint-disable-next-line quotes
+      '"mint_price" should be not less than "whitelist_mint_price".',
+    );
+  }
+
   if (!collection?.name) {
     errors.push("Collection name cannot be empty.");
   }
@@ -360,30 +408,19 @@ function validateProject(
     errors.push("No tokens available for minting.");
   }
 
-  const tokenNames = new Set();
   const tokenImages = new Set();
 
   const assetHashMap = new Map<string, string>();
 
-  config.tokens.forEach((token: any) => {
-    if (!token.name) {
-      errors.push("Token name cannot be empty.");
-    }
-
-    if (tokenNames.has(token.name)) {
-      errors.push(`Duplicated token name ${token.name}.`);
-    } else {
-      tokenNames.add(token.name);
-    }
-
+  config.tokens.forEach((token: any, i: number) => {
     if (!token.file_path) {
-      errors.push(`Token ${token.name} has no image.`);
+      errors.push(`Token at index ${i} has no image.`);
     } else if (!fs.existsSync(token.file_path)) {
       errors.push(`Token image ${token.file_path} doesn't exist.`);
     } else if (tokenImages.has(token.file_path)) {
       errors.push(`Duplicated token image file ${token.file_path}.`);
     } else {
-      tokenNames.add(token.file_path);
+      tokenImages.add(token.file_path);
     }
 
     if (token.supply <= 0) {
@@ -443,7 +480,7 @@ async function run() {
     );
   } else if (args.balance) {
     await getBundlrBalance(args["--address"], args["--network"]);
-  } else if (args.mint) {
+  } else if (args.upload) {
     const account = new AptosAccount(
       new HexString(args["--private-key"]).toUint8Array(),
     );
@@ -459,14 +496,15 @@ async function run() {
 
     const uploader = new BundlrUploader(account, targetNetwork);
 
-    const mill = new TokenMill(
+    const mintingEngine = new NFTMint(
       projectPath ?? ".",
       account,
       targetNetwork === "mainnet" ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
       uploader,
+      args["--minting-contract"],
     );
 
-    await mill.run();
+    await mintingEngine.run();
   } else if (args.validate) {
     validateProject(args["--project-path"], true, args["--check-asset-hashes"]);
   }
