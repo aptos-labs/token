@@ -45,6 +45,7 @@ export class NFTMint {
     private readonly mintingContractAddress: MaybeHexString,
   ) {
     this.db = new Database(path.join(projectPath, "minting.sqlite"));
+    this.db.configure("busyTimeout", 1200000);
     this.projectPath = projectPath;
     this.config = this.readProjectConfig();
     this.account = account;
