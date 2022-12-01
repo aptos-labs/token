@@ -6,6 +6,7 @@ import {
   HexString,
   TokenClient,
   MaybeHexString,
+  getPropertyValueRaw,
 } from "aptos";
 import { Database } from "sqlite3";
 import path from "path";
@@ -19,7 +20,7 @@ import invariant from "tiny-invariant";
 import chalk from "chalk";
 import { exit } from "process";
 import { AssetUploader } from "./asset-uploader";
-import { dateTimeStrToUnixSecs, getPropertyValueRaw } from "./utils";
+import { dateTimeStrToUnixSecs } from "./utils";
 
 // This class gets the minting contract ready for lazy minting.
 export class NFTMint {
@@ -282,6 +283,16 @@ export class NFTMint {
       property_values: propertyValues,
       property_types: propertyTypes,
     } = token.property_map;
+
+    // We would store token attributes on chain too
+    token?.metadata?.attributes?.forEach((attr: any) => {
+      if (attr?.trait_type && attr?.value) {
+        propertyKeys?.unshift(attr?.trait_type);
+        propertyValues?.unshift(attr?.value);
+        propertyTypes?.unshift("0x1::string::String");
+      }
+    });
+
     const rawTxn = await this.client.generateTransaction(
       this.account.address(),
       {
