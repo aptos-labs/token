@@ -17,7 +17,7 @@ module mint_nft::minting {
         admin: address,
         treasury: address,
         signer_cap: SignerCapability,
-        token_minting_events: EventHandle<TokenMintingEvent>,
+        token_minting_events: EventHandle<NFTMintMintingEvent>,
     }
 
     struct CollectionConfig has key {
@@ -54,7 +54,7 @@ module mint_nft::minting {
         public_minting_end_time: u64,
     }
 
-    struct TokenMintingEvent has drop, store {
+    struct NFTMintMintingEvent has drop, store {
         token_receiver_address: address,
         token_id: TokenId,
     }
@@ -80,7 +80,7 @@ module mint_nft::minting {
             admin: @source_addr,
             treasury: @source_addr,
             signer_cap: resource_signer_cap,
-            token_minting_events: account::new_event_handle<TokenMintingEvent>(resource_account),
+            token_minting_events: account::new_event_handle<NFTMintMintingEvent>(resource_account),
         });
     }
 
@@ -337,9 +337,9 @@ module mint_nft::minting {
 
         token_config.token_counter = token_config.token_counter + 1;
 
-        event::emit_event<TokenMintingEvent>(
+        event::emit_event<NFTMintMintingEvent>(
             &mut nft_mint_config.token_minting_events,
-            TokenMintingEvent {
+            NFTMintMintingEvent {
                 token_receiver_address: signer::address_of(nft_claimer),
                 token_id,
             }
