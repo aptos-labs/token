@@ -30,6 +30,8 @@ Usage:
   aptos-mint validate [--project-path=<project-path>] [--check-asset-hashes]
   aptos-mint fund --private-key=<private-key> --amount=<octas> [--network=<network>]
   aptos-mint balance --address=<address> [--network=<network>]
+  aptos-mint update-minting-time-and-price --private-key=<private-key> --minting-contract=<contract-address> [--project-path=<project-path>] [--network=<network>]
+  aptos-mint add-to-whitelist --addresses=<addr1,addr2,...> --limit=<limit-per-address> --private-key=<private-key> --minting-contract=<contract-address> [--project-path=<project-path>] [--network=<network>]
   aptos-mint upload --private-key=<private-key> --minting-contract=<contract-address> [--project-path=<project-path>] [--network=<network>]
   aptos-mint -h | --help          Show this.
   aptos-mint --version
@@ -459,6 +461,29 @@ function validateProject(
   return errors.length === 0;
 }
 
+async function createMintingEngine(args: any): Promise<NFTMint> {
+  const account = new AptosAccount(
+    new HexString(args["--private-key"]).toUint8Array(),
+  );
+
+  const projectPath = args["--project-path"];
+
+  const targetNetwork = await resolveNetwork(
+    args["--network"],
+    account.address(),
+  );
+
+  const uploader = new BundlrUploader(account, targetNetwork);
+
+  return new NFTMint(
+    projectPath ?? ".",
+    account,
+    targetNetwork === "mainnet" ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
+    uploader,
+    args["--minting-contract"],
+  );
+}
+
 async function run() {
   const args = docopt(doc);
   if (args["--version"]) {
@@ -481,32 +506,24 @@ async function run() {
   } else if (args.balance) {
     await getBundlrBalance(args["--address"], args["--network"]);
   } else if (args.upload) {
-    const account = new AptosAccount(
-      new HexString(args["--private-key"]).toUint8Array(),
-    );
-
-    const projectPath = args["--project-path"];
-
-    const targetNetwork = await resolveNetwork(
-      args["--network"],
-      account.address(),
-    );
-
-    if (!validateProject(projectPath, true)) return;
-
-    const uploader = new BundlrUploader(account, targetNetwork);
-
-    const mintingEngine = new NFTMint(
-      projectPath ?? ".",
-      account,
-      targetNetwork === "mainnet" ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
-      uploader,
-      args["--minting-contract"],
-    );
-
+    if (!validateProject(args["--project-path"], true)) exit(1);
+    const mintingEngine = await createMintingEngine(args);
     await mintingEngine.run();
   } else if (args.validate) {
     validateProject(args["--project-path"], true, args["--check-asset-hashes"]);
+  } else if (args["update-minting-time-and-price"]) {
+    if (!validateProject(args["--project-path"], true)) exit(1);
+    const mintingEngine = await createMintingEngine(args);
+    await mintingEngine.setMintingTimeAndPrice();
+    console.log("Minting time and price are updated successfully");
+  } else if (args["add-to-whitelist"]) {
+    const mintingEngine = await createMintingEngine(args);
+
+    await mintingEngine.addToWhiteList(
+      args["--addresses"].split(","),
+      args["--limit"],
+    );
+    console.log("Addresses are whitelisted successfully");
   }
 }
 
