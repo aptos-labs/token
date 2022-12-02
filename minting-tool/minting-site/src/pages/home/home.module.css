@@ -1,0 +1,44 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.innerContainer {
+  max-width: 450px;
+  width: 100%;
+  padding-bottom: 30px;
+  padding-top: 5%;
+}
+
+.coverImage {
+  width: 100%;
+}
+
+.actionsContainer {
+  padding: 0;
+}
+
+@media screen and (max-width: 768px) {
+  .innerContainer {
+    padding-top: 0;
+  }
+
+  .actionsContainer {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+.mintAmountInput {
+  width: 100%;
+}
+
+.mintInfoCard, .mintAmountInput  {
+  margin-top: 15px;
+}
+
+.mintTimeText {
+  font-size: 1.1em;
+}
