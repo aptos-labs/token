@@ -46,6 +46,7 @@ export class NFTMint {
     private readonly mintingContractAddress: MaybeHexString,
   ) {
     this.db = new Database(path.join(projectPath, "minting.sqlite"));
+    // Wait for up to two minutes when others are holding the lock
     this.db.configure("busyTimeout", 1200000);
     this.projectPath = projectPath;
     this.config = this.readProjectConfig();
@@ -211,16 +212,7 @@ export class NFTMint {
     );
   }
 
-  async setMintingTimeAndPriceTask() {
-    const dbGet = util.promisify(this.db.get.bind(this.db));
-    const row: any = await dbGet(
-      "SELECT finished FROM tasks where type = 'set_minting_time_and_price' and name = 'set_minting_time_and_price'",
-    );
-
-    if (row?.finished) {
-      return;
-    }
-
+  async setMintingTimeAndPrice() {
     const rawTxn = await this.client.generateTransaction(
       this.account.address(),
       {
@@ -257,6 +249,47 @@ export class NFTMint {
       );
       exit(1);
     }
+  }
+
+  async addToWhiteList(addresses: string[], mintLimitPerAddress: number) {
+    const rawTxn = await this.client.generateTransaction(
+      this.account.address(),
+      {
+        function: `${this.mintingContractAddress}::minting::add_to_whitelist`,
+        type_arguments: [],
+        arguments: [addresses, mintLimitPerAddress],
+      },
+    );
+
+    const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
+    const pendingTxn = await this.client.submitTransaction(bcsTxn);
+
+    const txn = await this.client.waitForTransactionWithResult(
+      pendingTxn.hash,
+      {
+        timeoutSecs: 600,
+      },
+    );
+
+    if (!(txn as any)?.success) {
+      console.error(
+        `Failed to to add adresses to whitelist. Transaction hash ${pendingTxn.hash}`,
+      );
+      exit(1);
+    }
+  }
+
+  async setMintingTimeAndPriceTask() {
+    const dbGet = util.promisify(this.db.get.bind(this.db));
+    const row: any = await dbGet(
+      "SELECT finished FROM tasks where type = 'set_minting_time_and_price' and name = 'set_minting_time_and_price'",
+    );
+
+    if (row?.finished) {
+      return;
+    }
+
+    await this.setMintingTimeAndPrice();
 
     const dbRun = util.promisify(this.db.run.bind(this.db));
     await dbRun(
