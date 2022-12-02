@@ -1,0 +1,23 @@
+.mainButton {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+}
+
+.pickerContainer {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  width: 100%
+}
+
+.walletCard {
+  background-color: rgb(228, 228, 231);
+}
+
+.walletCardContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+}
