@@ -38,6 +38,12 @@ export class NFTMint {
 
   config: Record<string, any>;
 
+  dbGet: (sql: string) => Promise<unknown>;
+
+  dbRun: (sql: string) => Promise<unknown>;
+
+  dbAll: (sql: string) => Promise<unknown>;
+
   constructor(
     projectPath: string,
     account: AptosAccount,
@@ -54,6 +60,9 @@ export class NFTMint {
     this.uploader = uploader;
     this.client = new AptosClient(nodeURL);
     this.tokenClient = new TokenClient(this.client);
+    this.dbGet = util.promisify(this.db.get.bind(this.db));
+    this.dbRun = util.promisify(this.db.run.bind(this.db));
+    this.dbAll = util.promisify(this.db.all.bind(this.db));
   }
 
   hash(jsonObj: any): string {
@@ -73,14 +82,12 @@ export class NFTMint {
       | "set_minting_time_and_price",
     name: string,
   ) {
-    const dbGet = util.promisify(this.db.get.bind(this.db));
-    const row = await dbGet(
+    const row = await this.dbGet(
       `SELECT id FROM tasks where type = '${taskType}' and name = '${name}'`,
     );
 
-    const dbRun = util.promisify(this.db.run.bind(this.db));
     if (!row) {
-      await dbRun(
+      await this.dbRun(
         `INSERT INTO tasks(name, type, extra_data, finished) VALUES('${name}', '${taskType}', '', 0)`,
       );
     }
@@ -103,8 +110,7 @@ export class NFTMint {
 
   async ensureTablesExist() {
     // Minting has not started in the past. Let's create the minting tracking db
-    const dbRun = util.promisify(this.db.run.bind(this.db));
-    await dbRun(`
+    await this.dbRun(`
       CREATE TABLE IF NOT EXISTS tasks(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -116,8 +122,7 @@ export class NFTMint {
   }
 
   async uploadTokenImageTask(token: any, i: number) {
-    const dbGet = util.promisify(this.db.get.bind(this.db));
-    const row: any = await dbGet(
+    const row: any = await this.dbGet(
       `SELECT finished FROM tasks where type = 'token' and name = '${i}'`,
     );
 
@@ -134,9 +139,7 @@ export class NFTMint {
       token,
     );
 
-    const dbRun = util.promisify(this.db.run.bind(this.db));
-
-    await dbRun(
+    await this.dbRun(
       `UPDATE tasks set finished = 1, extra_data = '${assetUri}' where type = 'token' and name = '${i}'`,
     );
 
@@ -146,8 +149,7 @@ export class NFTMint {
   }
 
   async setCollectionConfigTask() {
-    const dbGet = util.promisify(this.db.get.bind(this.db));
-    let row: any = await dbGet(
+    let row: any = await this.dbGet(
       "SELECT * FROM tasks where type = 'set_collection_config' and name = 'set_collection_config'",
     );
 
@@ -155,7 +157,7 @@ export class NFTMint {
       return;
     }
 
-    row = await dbGet(
+    row = await this.dbGet(
       `SELECT extra_data FROM tasks where type = 'collection_img_upload' and name = '${this.config.collection.name}'`,
     );
 
@@ -206,8 +208,7 @@ export class NFTMint {
       exit(1);
     }
 
-    const dbRun = util.promisify(this.db.run.bind(this.db));
-    await dbRun(
+    await this.dbRun(
       "UPDATE tasks set finished = 1 where type = 'set_collection_config' and name = 'set_collection_config'",
     );
   }
@@ -291,8 +292,7 @@ export class NFTMint {
 
     await this.setMintingTimeAndPrice();
 
-    const dbRun = util.promisify(this.db.run.bind(this.db));
-    await dbRun(
+    await this.dbRun(
       "UPDATE tasks set finished = 1 where type = 'set_minting_time_and_price' and name = 'set_minting_time_and_price'",
     );
   }
@@ -300,8 +300,7 @@ export class NFTMint {
   // WARNING: we are adding tokens one by one. This costs more gas. However, this will avoid the exception that
   // transaction size exceeds limits. For simplicity, we only support adding token one by one at the moment.
   async addTokensTask(token: any, i: number) {
-    const dbGet = util.promisify(this.db.get.bind(this.db));
-    const row: any = await dbGet(
+    const row: any = await this.dbGet(
       `SELECT * FROM tasks where type = 'token' and name = '${i}'`,
     );
 
@@ -357,16 +356,14 @@ export class NFTMint {
       return;
     }
 
-    const dbRun = util.promisify(this.db.run.bind(this.db));
-    await dbRun(
+    await this.dbRun(
       `UPDATE tasks set finished = 2 where type = 'token' and name = '${row.name}'`,
     );
     console.log(`Token at index ${i} is added to the smart contract.`);
   }
 
   async uploadCollectionImageTask(collection: any) {
-    const dbGet = util.promisify(this.db.get.bind(this.db));
-    const row: any = await dbGet(
+    const row: any = await this.dbGet(
       `SELECT finished FROM tasks where type = 'collection_img_upload' and name = '${collection.name}'`,
     );
 
@@ -385,9 +382,7 @@ export class NFTMint {
       collection,
     );
 
-    const dbRun = util.promisify(this.db.run.bind(this.db));
-
-    await dbRun(
+    await this.dbRun(
       `UPDATE tasks set finished = 1, extra_data = '${coverUri}' where type = 'collection_img_upload' and name = '${collection.name}'`,
     );
 
@@ -397,8 +392,7 @@ export class NFTMint {
   async verifyAllTasksDone() {
     console.log(chalk.greenBright("Verifying if all tasks are done..."));
 
-    const dbAll = util.promisify(this.db.all.bind(this.db));
-    const rows: any = await dbAll(
+    const rows: any = await this.dbAll(
       "SELECT finished FROM tasks where type = 'token'",
     );
 
