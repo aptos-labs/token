@@ -22,6 +22,7 @@ const { Text } = Typography;
 
 function formatDate(dt: string | number): string {
   const mt = moment.unix(Number.parseInt(dt.toString(), 10));
+  console.log(mt.toDate());
   return mt.format('LLLL');
 }
 
@@ -126,7 +127,7 @@ export function Home() {
 
         const pubMintConfigData = pubMintConfig.data as any;
         setPublicMintConf({
-          start: pubMintConfigData.public_minting_end_time,
+          start: pubMintConfigData.public_minting_start_time,
           end: pubMintConfigData.public_minting_end_time,
           price: pubMintConfigData.public_mint_price,
         });
