@@ -12,7 +12,11 @@
 }
 
 .walletCard {
-  background-color: rgb(228, 228, 231);
+  background-color: #fff;
+}
+
+.walletCard:not(:last-child) {
+  margin-bottom: 10px;
 }
 
 .walletCardContainer {

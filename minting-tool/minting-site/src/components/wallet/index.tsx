@@ -3,13 +3,6 @@ import { HexString } from 'aptos';
 import { Button, Modal, Card, Typography, Dropdown, MenuProps } from 'antd';
 import { useWallet } from '@manahippo/aptos-wallet-adapter';
 import styles from './wallet.module.css';
-import petra from '../../assets/petra.svg';
-
-const iconMap = {
-  Petra: petra,
-};
-
-type WalletName = keyof typeof iconMap;
 
 function replaceRange(
   s: string,
@@ -60,49 +53,46 @@ export function WalletButton() {
             onCancel={() => setShowWalletsPicker(false)}
           >
             <div className={styles.pickerContainer}>
-              {wallets
-                .filter((w) => w.adapter.name === 'Petra')
-                .map((w) => (
-                  <Card key={w.adapter.name} className={styles.walletCard}>
-                    <div className={styles.walletCardContainer}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <img
-                          style={{
-                            width: '2em',
-                            height: '2em',
-                            marginRight: 10,
-                          }}
-                          src={iconMap[w.adapter.name as WalletName]}
-                          alt={w.adapter.name}
-                        />
-                        <Typography.Text
-                          style={{
-                            color: 'black',
-                            fontWeight: '500',
-                            fontSize: '1.1em',
-                          }}
-                        >
-                          {w.adapter.name}
-                        </Typography.Text>
-                      </div>
-                      {w.readyState === 'Installed' ? (
-                        <Button
-                          type="primary"
-                          onClick={() => {
-                            console.log('>>>', w.adapter.name);
-                            select(w.adapter.name);
-                          }}
-                        >
-                          connect
-                        </Button>
-                      ) : (
-                        <Button type="link" href={w.adapter.url}>
-                          install
-                        </Button>
-                      )}
+              {wallets.map((w) => (
+                <Card key={w.adapter.name} className={styles.walletCard}>
+                  <div className={styles.walletCardContainer}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <img
+                        style={{
+                          width: '2em',
+                          height: '2em',
+                          marginRight: 10,
+                        }}
+                        src={w.adapter.icon}
+                        alt={w.adapter.name}
+                      />
+                      <Typography.Text
+                        style={{
+                          color: 'black',
+                          fontWeight: '500',
+                          fontSize: '1.1em',
+                        }}
+                      >
+                        {w.adapter.name}
+                      </Typography.Text>
                     </div>
-                  </Card>
-                ))}
+                    {w.readyState === 'Installed' ? (
+                      <Button
+                        type="primary"
+                        onClick={() => {
+                          select(w.adapter.name);
+                        }}
+                      >
+                        connect
+                      </Button>
+                    ) : (
+                      <Button type="link" href={w.adapter.url}>
+                        install
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
             </div>
           </Modal>
         </>
