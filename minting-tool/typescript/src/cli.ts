@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable max-len */
 
-import { docopt } from "docopt";
 import fs from "fs";
 import { exit } from "process";
 import chalk from "chalk";
@@ -11,6 +10,7 @@ import prompts from "prompts";
 import Bundlr from "@bundlr-network/client";
 import untildify from "untildify";
 import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
+import { program } from "commander";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
@@ -22,31 +22,188 @@ import {
   MAINNET_BUNDLR_URL,
   TESTNET_APTOS_URL,
   TESTNET_BUNDLR_URL,
+  MAINNET,
+  TESTNET,
 } from "./utils";
 
-const doc = `
-Usage:
-  aptos-mint init --name=<name> --asset-path=<asset-path>
-  aptos-mint validate [--project-path=<project-path>] [--check-asset-hashes]
-  aptos-mint fund --private-key=<private-key> --amount=<octas> [--network=<network>]
-  aptos-mint balance --address=<address> [--network=<network>]
-  aptos-mint update-minting-time-and-price --private-key=<private-key> --minting-contract=<contract-address> [--project-path=<project-path>] [--network=<network>]
-  aptos-mint add-to-whitelist --addresses=<addr1,addr2,...> --limit=<limit-per-address> --private-key=<private-key> --minting-contract=<contract-address> [--project-path=<project-path>] [--network=<network>]
-  aptos-mint upload --private-key=<private-key> --minting-contract=<contract-address> [--project-path=<project-path>] [--network=<network>]
-  aptos-mint -h | --help          Show this.
-  aptos-mint --version
-`;
+program
+  .name("aptos-mint")
+  .description("CLI to create NFT collections")
+  .version(version);
+
+program
+  .command("init")
+  .description("Creates a NFT project with a config file.")
+  .requiredOption("--name <name>", "Name of the project.")
+  .requiredOption(
+    "--asset-path <asset-path>",
+    "The path to the hashlips asset directory.",
+  )
+  .action(async ({ name: projectName, assetPath }) => {
+    await checkHashLipsAsset(assetPath);
+    await initProject(projectName, assetPath);
+  });
+
+program
+  .command("validate")
+  .description("Validate if the config of a project is valid.")
+  .option("--project-path <project-path>", "The path to the NFT project")
+  .option("--check-asset-hashes")
+  .action(({ projectPath, checkAssetHashes }) => {
+    validateProject(projectPath, true, checkAssetHashes || false);
+  });
+
+program
+  .command("fund")
+  .description(
+    "Fund Bundlr Aptos. This is required before you can upload asset files to Arweave.",
+  )
+  .requiredOption(
+    "--private-key <private-key>",
+    "The private key of the NFT creator account. This account needs to have the APTs to fund Bundlr.",
+  )
+  .requiredOption(
+    "--amount <octas>",
+    "The amount of Octas to fund the Bundlr service.",
+  )
+  .option(
+    "--network <mainnet|testnet>",
+    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
+  )
+  .action(async ({ privateKey, amount, network }) => {
+    await fundBundlr(
+      new AptosAccount(new HexString(privateKey).toUint8Array()),
+      amount,
+      network,
+    );
+  });
+
+program
+  .command("balance")
+  .description("Get the balance available in the Bundlr service.")
+  .requiredOption("--address <address>")
+  .option(
+    "--network <mainnet|testnet>",
+    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
+  )
+  .action(async ({ address, network }) => {
+    await getBundlrBalance(address, network);
+  });
+
+program
+  .command("update-minting-time-and-price")
+  .description("Update the minting time and price.")
+  .requiredOption(
+    "--private-key <private-key>",
+    "The private key of the NFT creator account.",
+  )
+  .requiredOption(
+    "--minting-contract <contract-address>",
+    "The on-chain address of the minting contract.",
+  )
+  .option("--project-path <project-path>", "The path to the NFT project")
+  .option(
+    "--network <mainnet|testnet>",
+    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
+  )
+  .action(async (args) => {
+    const { projectPath } = args;
+    if (!validateProject(projectPath, true)) exit(1);
+    const mintingEngine = await createMintingEngine(args);
+    await mintingEngine.setMintingTimeAndPrice();
+    console.log("Minting time and price are updated successfully");
+  });
+
+program
+  .command("add-to-whitelist")
+  .description(
+    "Whitelist the addresses that can mint NFTs during whitelist period.",
+  )
+  .requiredOption(
+    "--addresses <addr1,addr2,...>",
+    "A list of addresses separated by commas.",
+  )
+  .requiredOption(
+    "--limit <limit-per-address>",
+    "The limit of NFTs that each account is allowed to mint.",
+  )
+  .requiredOption(
+    "--private-key <private-key>",
+    "The private key of the NFT creator account.",
+  )
+  .requiredOption(
+    "--minting-contract <contract-address>",
+    "The on-chain address of the minting contract.",
+  )
+  .option("--project-path <project-path>", "The path to the NFT project")
+  .option(
+    "--network <mainnet|testnet>",
+    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
+  )
+  .action(async (args) => {
+    const { addresses, limit } = args;
+    const mintingEngine = await createMintingEngine(args);
+    await mintingEngine.addToWhiteList(addresses.split(","), limit);
+    console.log("Addresses are whitelisted successfully");
+  });
+
+program
+  .command("upload")
+  .description("Upload assets to Arweave.")
+  .requiredOption(
+    "--private-key <private-key>",
+    "The private key of the NFT creator account.",
+  )
+  .requiredOption(
+    "--minting-contract <contract-address>",
+    "The on-chain address of the minting contract.",
+  )
+  .option("--project-path <project-path>", "The path to the NFT project")
+  .option(
+    "--network <mainnet|testnet>",
+    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
+  )
+  .action(async (args) => {
+    const { projectPath } = args;
+
+    if (!validateProject(projectPath, true)) exit(1);
+    const mintingEngine = await createMintingEngine(args);
+    await mintingEngine.run();
+  });
 
 async function resolveNetwork(
   network: string | null | undefined,
   address: MaybeHexString,
 ): Promise<"mainnet" | "testnet"> {
-  const n = network ?? (await detectNetwork(address));
+  if (network) {
+    if (network !== MAINNET && network !== TESTNET) {
+      throw new Error(
+        `Invalid network value ${network}. Only "${MAINNET}" and "${TESTNET}" are supported.`,
+      );
+    }
 
-  if (n !== "mainnet" && n !== "testnet") {
-    throw new Error(
-      `Invalid network value ${n}. Only "mainnet" and "testnet" are supported.`,
-    );
+    return network;
+  }
+
+  const n = await detectNetwork(address);
+
+  // We should ask users for the network
+  if (n === "both") {
+    const questions = [
+      {
+        type: "text",
+        name: "network",
+        message:
+          "What is the network you want to run against? Accepted networks are 'mainnet' and 'testnet'",
+        validate: (value: string) =>
+          value !== MAINNET && value !== TESTNET
+            ? "Invalid network value. Accepted networks are 'mainnet' and 'testnet'"
+            : true,
+      },
+    ];
+
+    const response = await prompts(questions as any);
+    return response.network;
   }
 
   return n;
@@ -313,7 +470,7 @@ async function getBundlrBalance(
   const targetNetwork = await resolveNetwork(network, accountAddress);
 
   const bundlrUrl =
-    targetNetwork === "mainnet" ? MAINNET_BUNDLR_URL : TESTNET_BUNDLR_URL;
+    targetNetwork === MAINNET ? MAINNET_BUNDLR_URL : TESTNET_BUNDLR_URL;
   const bundlr = await Bundlr.init({
     url: bundlrUrl,
     currency: "aptos",
@@ -326,10 +483,12 @@ async function getBundlrBalance(
 }
 
 function validateProject(
-  projectPath: string,
+  project: string,
   print: boolean,
   checkAssetHashes: boolean = false,
 ): boolean {
+  const projectPath = project || ".";
+
   const configBuf = fs.readFileSync(path.join(projectPath, "config.json"));
 
   const config = JSON.parse(configBuf.toString("utf8"));
@@ -461,70 +620,29 @@ function validateProject(
   return errors.length === 0;
 }
 
-async function createMintingEngine(args: any): Promise<NFTMint> {
-  const account = new AptosAccount(
-    new HexString(args["--private-key"]).toUint8Array(),
-  );
+async function createMintingEngine({
+  privateKey,
+  projectPath,
+  network,
+  mintingContract,
+}: any): Promise<NFTMint> {
+  const account = new AptosAccount(new HexString(privateKey).toUint8Array());
 
-  const projectPath = args["--project-path"];
-
-  const targetNetwork = await resolveNetwork(
-    args["--network"],
-    account.address(),
-  );
+  const targetNetwork = await resolveNetwork(network, account.address());
 
   const uploader = new BundlrUploader(account, targetNetwork);
 
   return new NFTMint(
     projectPath ?? ".",
     account,
-    targetNetwork === "mainnet" ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
+    targetNetwork === MAINNET ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
     uploader,
-    args["--minting-contract"],
+    mintingContract,
   );
 }
 
 async function run() {
-  const args = docopt(doc);
-  if (args["--version"]) {
-    console.log(version);
-  } else if (args.init) {
-    const [projectName, assetPath] = [args["--name"], args["--asset-path"]];
-    await checkHashLipsAsset(assetPath);
-    await initProject(projectName, assetPath);
-  } else if (args.fund) {
-    const [privateKey, amount, network] = [
-      args["--private-key"],
-      args["--amount"],
-      args["--network"],
-    ];
-    await fundBundlr(
-      new AptosAccount(new HexString(privateKey).toUint8Array()),
-      amount,
-      network,
-    );
-  } else if (args.balance) {
-    await getBundlrBalance(args["--address"], args["--network"]);
-  } else if (args.upload) {
-    if (!validateProject(args["--project-path"], true)) exit(1);
-    const mintingEngine = await createMintingEngine(args);
-    await mintingEngine.run();
-  } else if (args.validate) {
-    validateProject(args["--project-path"], true, args["--check-asset-hashes"]);
-  } else if (args["update-minting-time-and-price"]) {
-    if (!validateProject(args["--project-path"], true)) exit(1);
-    const mintingEngine = await createMintingEngine(args);
-    await mintingEngine.setMintingTimeAndPrice();
-    console.log("Minting time and price are updated successfully");
-  } else if (args["add-to-whitelist"]) {
-    const mintingEngine = await createMintingEngine(args);
-
-    await mintingEngine.addToWhiteList(
-      args["--addresses"].split(","),
-      args["--limit"],
-    );
-    console.log("Addresses are whitelisted successfully");
-  }
+  program.parse();
 }
 
 run();
