@@ -5,8 +5,8 @@
   "engines": {
     "node": ">=11.0.0"
   },
-  "main": "./dist/cli.js",
-  "bin": "./dist/cli.js",
+  "main": "./dist/src/cli.js",
+  "bin": "./dist/src/cli.js",
   "scripts": {
     "build": "rm -rf dist && tsc -p .",
     "test": "jest",
@@ -33,7 +33,7 @@
     "bignumber.js": "^9.1.0",
     "canonicalize": "^1.0.8",
     "chalk": "4.1.2",
-    "docopt": "^0.6.2",
+    "commander": "^9.4.1",
     "globby": "11.0.4",
     "prompts": "^2.4.2",
     "sqlite3": "^5.1.2",
