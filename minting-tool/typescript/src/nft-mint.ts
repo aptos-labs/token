@@ -50,6 +50,7 @@ export class NFTMint {
     nodeURL: string,
     uploader: AssetUploader,
     private readonly mintingContractAddress: MaybeHexString,
+    private readonly network: "mainnet" | "testnet",
   ) {
     this.db = new Database(path.join(projectPath, "minting.sqlite"));
     // Wait for up to two minutes when others are holding the lock
@@ -63,6 +64,10 @@ export class NFTMint {
     this.dbGet = util.promisify(this.db.get.bind(this.db));
     this.dbRun = util.promisify(this.db.run.bind(this.db));
     this.dbAll = util.promisify(this.db.all.bind(this.db));
+  }
+
+  getExplorerLink(txnHash: string): string {
+    return `https://explorer.aptoslabs.com/txn/${txnHash}?network=${this.network}`;
   }
 
   hash(jsonObj: any): string {
@@ -203,7 +208,9 @@ export class NFTMint {
 
     if (!(txn as any)?.success) {
       console.error(
-        `Failed to set collection config and create collection. Transaction hash ${pendingTxn.hash}`,
+        `Failed to set collection config and create collection. Transaction link ${this.getExplorerLink(
+          pendingTxn.hash,
+        )}`,
       );
       exit(1);
     }
@@ -246,7 +253,9 @@ export class NFTMint {
 
     if (!(txn as any)?.success) {
       console.error(
-        `Failed to set minting time and price. Transaction hash ${pendingTxn.hash}`,
+        `Failed to set minting time and price. Transaction link ${this.getExplorerLink(
+          pendingTxn.hash,
+        )}`,
       );
       exit(1);
     }
@@ -274,7 +283,9 @@ export class NFTMint {
 
     if (!(txn as any)?.success) {
       console.error(
-        `Failed to to add adresses to whitelist. Transaction hash ${pendingTxn.hash}`,
+        `Failed to to add adresses to whitelist. Transaction link ${this.getExplorerLink(
+          pendingTxn.hash,
+        )}`,
       );
       exit(1);
     }
@@ -351,7 +362,9 @@ export class NFTMint {
 
     if (!(txn as any)?.success) {
       console.error(
-        `Failed to add the token at index ${i} to smart contract. Transaction hash ${pendingTxn.hash}`,
+        `Failed to add the token at index ${i} to smart contract. Transaction link ${this.getExplorerLink(
+          pendingTxn.hash,
+        )}`,
       );
       return;
     }
