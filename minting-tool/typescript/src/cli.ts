@@ -638,6 +638,7 @@ async function createMintingEngine({
     targetNetwork === MAINNET ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
     uploader,
     mintingContract,
+    targetNetwork,
   );
 }
 
