@@ -15,10 +15,8 @@ import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import canonicalize from "canonicalize";
 
 import fs from "fs";
-import invariant from "tiny-invariant";
 
 import chalk from "chalk";
-import { exit } from "process";
 import { AssetUploader } from "./asset-uploader";
 import { dateTimeStrToUnixSecs, NetworkType } from "./utils";
 
@@ -68,6 +66,18 @@ export class NFTMint {
 
   getExplorerLink(txnHash: string): string {
     return `https://explorer.aptoslabs.com/txn/${txnHash}?network=${this.network}`;
+  }
+
+  async checkTxnSuccessWithMessage(txnHash: string, message: string) {
+    const txn = await this.client.waitForTransactionWithResult(txnHash, {
+      timeoutSecs: 600,
+    });
+
+    if (!(txn as any)?.success) {
+      throw new Error(
+        `${message}\nTransaction link ${this.getExplorerLink(txnHash)}`,
+      );
+    }
   }
 
   hash(jsonObj: any): string {
@@ -199,21 +209,10 @@ export class NFTMint {
     const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
     const pendingTxn = await this.client.submitTransaction(bcsTxn);
 
-    const txn = await this.client.waitForTransactionWithResult(
+    await this.checkTxnSuccessWithMessage(
       pendingTxn.hash,
-      {
-        timeoutSecs: 600,
-      },
+      "Failed to set collection config and create collection.",
     );
-
-    if (!(txn as any)?.success) {
-      console.error(
-        `Failed to set collection config and create collection. Transaction link ${this.getExplorerLink(
-          pendingTxn.hash,
-        )}`,
-      );
-      exit(1);
-    }
 
     await this.dbRun(
       "UPDATE tasks set finished = 1 where type = 'set_collection_config' and name = 'set_collection_config'",
@@ -244,21 +243,10 @@ export class NFTMint {
     const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
     const pendingTxn = await this.client.submitTransaction(bcsTxn);
 
-    const txn = await this.client.waitForTransactionWithResult(
+    await this.checkTxnSuccessWithMessage(
       pendingTxn.hash,
-      {
-        timeoutSecs: 600,
-      },
+      "Failed to set minting time and price.",
     );
-
-    if (!(txn as any)?.success) {
-      console.error(
-        `Failed to set minting time and price. Transaction link ${this.getExplorerLink(
-          pendingTxn.hash,
-        )}`,
-      );
-      exit(1);
-    }
   }
 
   async addToWhiteList(addresses: string[], mintLimitPerAddress: number) {
@@ -274,21 +262,10 @@ export class NFTMint {
     const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
     const pendingTxn = await this.client.submitTransaction(bcsTxn);
 
-    const txn = await this.client.waitForTransactionWithResult(
+    await this.checkTxnSuccessWithMessage(
       pendingTxn.hash,
-      {
-        timeoutSecs: 600,
-      },
+      "Failed to to add adresses to whitelist.",
     );
-
-    if (!(txn as any)?.success) {
-      console.error(
-        `Failed to to add adresses to whitelist. Transaction link ${this.getExplorerLink(
-          pendingTxn.hash,
-        )}`,
-      );
-      exit(1);
-    }
   }
 
   async setMintingTimeAndPriceTask() {
@@ -353,21 +330,10 @@ export class NFTMint {
     const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
     const pendingTxn = await this.client.submitTransaction(bcsTxn);
 
-    const txn = await this.client.waitForTransactionWithResult(
+    await this.checkTxnSuccessWithMessage(
       pendingTxn.hash,
-      {
-        timeoutSecs: 600,
-      },
+      `Failed to add the token at index ${i} to smart contract.`,
     );
-
-    if (!(txn as any)?.success) {
-      console.error(
-        `Failed to add the token at index ${i} to smart contract. Transaction link ${this.getExplorerLink(
-          pendingTxn.hash,
-        )}`,
-      );
-      return;
-    }
 
     await this.dbRun(
       `UPDATE tasks set finished = 2 where type = 'token' and name = '${row.name}'`,
@@ -416,12 +382,9 @@ export class NFTMint {
 
     rows.forEach((row: any) => {
       if (row.finished !== 2) {
-        console.error(
-          chalk.red(
-            "Some tasks did not finish. You can rerun the upload command.",
-          ),
+        throw new Error(
+          "Some tasks did not finish. You can rerun the upload command.",
         );
-        exit(1);
       }
     });
     console.log(chalk.greenBright("All tasks are done"));
@@ -459,17 +422,20 @@ export class NFTMint {
   }
 
   async validateProjectFolder(): Promise<Record<string, any>> {
-    invariant(
-      fs.existsSync(path.join(this.projectPath, "config.json")),
-      `config.json doesn't exist in ${this.projectPath}`,
-    );
+    if (!fs.existsSync(path.join(this.projectPath, "config.json"))) {
+      throw new Error(`config.json doesn't exist in ${this.projectPath}`);
+    }
 
     const { config } = this;
 
-    invariant(config?.collection?.name, "collection name cannot be empty");
+    if (!config?.collection?.name) {
+      throw new Error("collection name cannot be empty");
+    }
 
     config?.collection?.tokens?.forEach((token: any) => {
-      invariant(token?.name, "token name cannot be empty");
+      if (!token?.name) {
+        throw new Error("token name cannot be empty");
+      }
     });
 
     return config;
