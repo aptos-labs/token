@@ -2,28 +2,30 @@
 /* eslint-disable max-len */
 
 import fs from "fs";
+import os from "os";
 import { exit } from "process";
 import chalk from "chalk";
 import globby from "globby";
 import path from "path";
 import prompts from "prompts";
 import Bundlr from "@bundlr-network/client";
-import untildify from "untildify";
 import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import { program } from "commander";
+import YAML from "yaml";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
 import { BundlrUploader } from "./asset-uploader";
 import { NFTMint } from "./nft-mint";
 import {
-  detectNetwork,
   MAINNET_APTOS_URL,
   MAINNET_BUNDLR_URL,
   TESTNET_APTOS_URL,
   TESTNET_BUNDLR_URL,
   MAINNET,
   TESTNET,
+  NetworkType,
+  resolvePath,
 } from "./utils";
 
 program
@@ -59,57 +61,51 @@ program
     "Fund Bundlr Aptos. This is required before you can upload asset files to Arweave.",
   )
   .requiredOption(
-    "--private-key <private-key>",
-    "The private key of the NFT creator account. This account needs to have the APTs to fund Bundlr.",
+    "--profile <aptos-cli-profile>",
+    "The profile name of the Aptos CLI. This account needs to have the APTs to fund Bundlr.",
   )
   .requiredOption(
     "--amount <octas>",
     "The amount of Octas to fund the Bundlr service.",
   )
-  .option(
-    "--network <mainnet|testnet>",
-    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
-  )
-  .action(async ({ privateKey, amount, network }) => {
-    await fundBundlr(
-      new AptosAccount(new HexString(privateKey).toUint8Array()),
-      amount,
-      network,
-    );
+  .action(async ({ profile, amount }) => {
+    const [account, network] = await resolveProfile(profile);
+    await fundBundlr(account, amount, network);
   });
 
 program
   .command("balance")
   .description("Get the balance available in the Bundlr service.")
-  .requiredOption("--address <address>")
-  .option(
-    "--network <mainnet|testnet>",
-    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
+  .requiredOption(
+    "--profile <aptos-cli-profile>",
+    "The profile name of the Aptos CLI.",
   )
-  .action(async ({ address, network }) => {
-    await getBundlrBalance(address, network);
+  .action(async ({ profile }) => {
+    const [account, network] = await resolveProfile(profile);
+    await getBundlrBalance(account.address(), network);
   });
 
 program
   .command("update-minting-time-and-price")
   .description("Update the minting time and price.")
   .requiredOption(
-    "--private-key <private-key>",
-    "The private key of the NFT creator account.",
+    "--profile <aptos-cli-profile>",
+    "The profile name of the Aptos CLI.",
   )
   .requiredOption(
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
   .option("--project-path <project-path>", "The path to the NFT project")
-  .option(
-    "--network <mainnet|testnet>",
-    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
-  )
-  .action(async (args) => {
-    const { projectPath } = args;
+  .action(async ({ projectPath, profile, mintingContract }) => {
     if (!validateProject(projectPath, true)) exit(1);
-    const mintingEngine = await createMintingEngine(args);
+    const [account, network] = await resolveProfile(profile);
+    const mintingEngine = await createMintingEngine({
+      account,
+      projectPath,
+      network,
+      mintingContract,
+    });
     await mintingEngine.setMintingTimeAndPrice();
     console.log("Minting time and price are updated successfully");
   });
@@ -128,95 +124,57 @@ program
     "The limit of NFTs that each account is allowed to mint.",
   )
   .requiredOption(
-    "--private-key <private-key>",
-    "The private key of the NFT creator account.",
+    "--profile <aptos-cli-profile>",
+    "The profile name of the Aptos CLI.",
   )
   .requiredOption(
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
   .option("--project-path <project-path>", "The path to the NFT project")
-  .option(
-    "--network <mainnet|testnet>",
-    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
-  )
-  .action(async (args) => {
-    const { addresses, limit } = args;
-    const mintingEngine = await createMintingEngine(args);
-    await mintingEngine.addToWhiteList(addresses.split(","), limit);
-    console.log("Addresses are whitelisted successfully");
-  });
+  .action(
+    async ({ addresses, limit, profile, mintingContract, projectPath }) => {
+      const [account, network] = await resolveProfile(profile);
+
+      const mintingEngine = await createMintingEngine({
+        account,
+        projectPath,
+        network,
+        mintingContract,
+      });
+      await mintingEngine.addToWhiteList(addresses.split(","), limit);
+      console.log("Addresses are whitelisted successfully");
+    },
+  );
 
 program
   .command("upload")
   .description("Upload assets to Arweave.")
   .requiredOption(
-    "--private-key <private-key>",
-    "The private key of the NFT creator account.",
+    "--profile <aptos-cli-profile>",
+    "The profile name of the Aptos CLI.",
   )
   .requiredOption(
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
   .option("--project-path <project-path>", "The path to the NFT project")
-  .option(
-    "--network <mainnet|testnet>",
-    "The network that this command is run against. 'mainnet' and 'testnet' are valid values.",
-  )
-  .action(async (args) => {
-    const { projectPath } = args;
-
+  .action(async ({ profile, mintingContract, projectPath }) => {
     if (!validateProject(projectPath, true)) exit(1);
-    const mintingEngine = await createMintingEngine(args);
+
+    const [account, network] = await resolveProfile(profile);
+    const mintingEngine = await createMintingEngine({
+      account,
+      projectPath,
+      network,
+      mintingContract,
+    });
     await mintingEngine.run();
   });
-
-async function resolveNetwork(
-  network: string | null | undefined,
-  address: MaybeHexString,
-): Promise<"mainnet" | "testnet"> {
-  if (network) {
-    if (network !== MAINNET && network !== TESTNET) {
-      throw new Error(
-        `Invalid network value ${network}. Only "${MAINNET}" and "${TESTNET}" are supported.`,
-      );
-    }
-
-    return network;
-  }
-
-  const n = await detectNetwork(address);
-
-  // We should ask users for the network
-  if (n === "both") {
-    const questions = [
-      {
-        type: "text",
-        name: "network",
-        message:
-          "What is the network you want to run against? Accepted networks are 'mainnet' and 'testnet'",
-        validate: (value: string) =>
-          value !== MAINNET && value !== TESTNET
-            ? "Invalid network value. Accepted networks are 'mainnet' and 'testnet'"
-            : true,
-      },
-    ];
-
-    const response = await prompts(questions as any);
-    return response.network;
-  }
-
-  return n;
-}
 
 function exitWithError(message: string) {
   console.error(chalk.red(message));
   exit(1);
-}
-
-function resolvePath(p: string, ...rest: string[]): string {
-  if (!p) return "";
-  return path.resolve(untildify(p), ...rest);
 }
 
 async function initProject(name: string, assetPath: string) {
@@ -442,7 +400,7 @@ function octasToApt(amount: string): string {
 async function fundBundlr(
   account: AptosAccount,
   amount: string,
-  network: string | null | undefined,
+  network: NetworkType,
 ) {
   const questions = [
     {
@@ -456,21 +414,17 @@ async function fundBundlr(
   const response = await prompts(questions as any);
   if (!response.continue) return;
 
-  const targetNetwork = await resolveNetwork(network, account.address());
-
-  const bundlr = new BundlrUploader(account, targetNetwork);
+  const bundlr = new BundlrUploader(account, network);
   await bundlr.fund(amount);
   console.log("The storage service is funded.");
 }
 
 async function getBundlrBalance(
   accountAddress: MaybeHexString,
-  network: string | null | undefined,
+  network: NetworkType,
 ) {
-  const targetNetwork = await resolveNetwork(network, accountAddress);
-
   const bundlrUrl =
-    targetNetwork === MAINNET ? MAINNET_BUNDLR_URL : TESTNET_BUNDLR_URL;
+    network === MAINNET ? MAINNET_BUNDLR_URL : TESTNET_BUNDLR_URL;
   const bundlr = await Bundlr.init({
     url: bundlrUrl,
     currency: "aptos",
@@ -621,29 +575,71 @@ function validateProject(
 }
 
 async function createMintingEngine({
-  privateKey,
+  account,
   projectPath,
   network,
   mintingContract,
 }: any): Promise<NFTMint> {
-  const account = new AptosAccount(new HexString(privateKey).toUint8Array());
-
-  const targetNetwork = await resolveNetwork(network, account.address());
-
-  const uploader = new BundlrUploader(account, targetNetwork);
+  const uploader = new BundlrUploader(account, network);
 
   return new NFTMint(
     projectPath ?? ".",
     account,
-    targetNetwork === MAINNET ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
+    network === MAINNET ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
     uploader,
     mintingContract,
-    targetNetwork,
+    network,
   );
+}
+
+async function resolveProfile(
+  profileName: string,
+): Promise<[AptosAccount, "mainnet" | "testnet"]> {
+  // Check if Aptos CLI config file exists
+  const cliConfigFile = resolvePath(os.homedir(), ".aptos/config.yaml");
+  if (!fs.existsSync(cliConfigFile)) {
+    throw new Error(
+      "Cannot find the global config for Aptos CLI. Did you forget to run command 'aptos config set-global-config --config-type global && aptos init --profile <profile-name>'?",
+    );
+  }
+
+  const configBuf = await fs.promises.readFile(cliConfigFile);
+  const config = YAML.parse(configBuf.toString("utf8"));
+  if (!config?.profiles?.[profileName]) {
+    throw new Error(
+      `Profile '${profileName}' is not found. Run command 'aptos config show-global-config' to make sure the config type is "Global". Run command 'aptos config show-profiles' to see available profiles.`,
+    );
+  }
+
+  const profile = config.profiles[profileName];
+
+  if (!profile.private_key || !profile.rest_url) {
+    throw new Error(`Profile '${profileName}' format is invalid.`);
+  }
+
+  let network = "";
+
+  if (profile.rest_url.includes(TESTNET)) {
+    network = TESTNET;
+  }
+
+  if (profile.rest_url.includes(MAINNET)) {
+    network = MAINNET;
+  }
+
+  if (network !== TESTNET && network !== MAINNET) {
+    throw new Error(
+      `Make sure profile '${profileName}' points to '${TESTNET}' or '${MAINNET}'. Run command 'aptos config show-profiles --profile ${profileName}' to see profile details.`,
+    );
+  }
+
+  return [
+    new AptosAccount(new HexString(profile.private_key).toUint8Array()),
+    network,
+  ];
 }
 
 async function run() {
   program.parse();
 }
-
 run();
