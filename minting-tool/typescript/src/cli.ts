@@ -16,9 +16,7 @@ import { version } from "../package.json";
 import { BundlrUploader } from "./asset-uploader";
 import { NFTMint } from "./nft-mint";
 import {
-  MAINNET_APTOS_URL,
   MAINNET_BUNDLR_URL,
-  TESTNET_APTOS_URL,
   TESTNET_BUNDLR_URL,
   MAINNET,
   NetworkType,
@@ -102,12 +100,12 @@ program
     assertProjectValid(projectPath, true);
 
     const [account, network] = await resolveProfile(profile);
-    const mintingEngine = await createMintingEngine({
-      account,
+    const mintingEngine = new NFTMint(
       projectPath,
+      account,
       network,
       mintingContract,
-    });
+    );
     await mintingEngine.setMintingTimeAndPrice();
     console.log("Minting time and price are updated successfully");
   });
@@ -138,12 +136,12 @@ program
     async ({ addresses, limit, profile, mintingContract, projectPath }) => {
       const [account, network] = await resolveProfile(profile);
 
-      const mintingEngine = await createMintingEngine({
-        account,
+      const mintingEngine = new NFTMint(
         projectPath,
+        account,
         network,
         mintingContract,
-      });
+      );
       await mintingEngine.addToWhiteList(addresses.split(","), limit);
       console.log("Addresses are whitelisted successfully");
     },
@@ -165,12 +163,12 @@ program
     assertProjectValid(projectPath, true);
 
     const [account, network] = await resolveProfile(profile);
-    const mintingEngine = await createMintingEngine({
-      account,
+    const mintingEngine = new NFTMint(
       projectPath,
+      account,
       network,
       mintingContract,
-    });
+    );
     await mintingEngine.run();
   });
 
@@ -562,24 +560,6 @@ function assertProjectValid(
   if (errors.length > 0) {
     exit(1);
   }
-}
-
-async function createMintingEngine({
-  account,
-  projectPath,
-  network,
-  mintingContract,
-}: any): Promise<NFTMint> {
-  const uploader = new BundlrUploader(account, network);
-
-  return new NFTMint(
-    projectPath ?? ".",
-    account,
-    network === MAINNET ? MAINNET_APTOS_URL : TESTNET_APTOS_URL,
-    uploader,
-    mintingContract,
-    network,
-  );
 }
 
 async function run() {

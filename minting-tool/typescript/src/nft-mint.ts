@@ -17,45 +17,47 @@ import canonicalize from "canonicalize";
 import fs from "fs";
 
 import chalk from "chalk";
-import { AssetUploader } from "./asset-uploader";
-import { dateTimeStrToUnixSecs, NetworkType } from "./utils";
+import { AssetUploader, BundlrUploader } from "./asset-uploader";
+import {
+  dateTimeStrToUnixSecs,
+  MAINNET,
+  MAINNET_APTOS_URL,
+  NetworkType,
+  readProjectConfig,
+  TESTNET_APTOS_URL,
+} from "./utils";
 
 // This class gets the minting contract ready for lazy minting.
 export class NFTMint {
-  projectPath: string;
+  private readonly tokenClient: TokenClient;
 
-  account: AptosAccount;
+  private readonly client: AptosClient;
 
-  tokenClient: TokenClient;
+  private readonly uploader: AssetUploader;
 
-  client: AptosClient;
+  private readonly db: Database;
 
-  uploader: AssetUploader;
+  private readonly config: Record<string, any>;
 
-  db: Database;
+  private dbGet: (sql: string) => Promise<unknown>;
 
-  config: Record<string, any>;
+  private dbRun: (sql: string) => Promise<unknown>;
 
-  dbGet: (sql: string) => Promise<unknown>;
-
-  dbRun: (sql: string) => Promise<unknown>;
-
-  dbAll: (sql: string) => Promise<unknown>;
+  private dbAll: (sql: string) => Promise<unknown>;
 
   constructor(
-    projectPath: string,
-    account: AptosAccount,
-    nodeURL: string,
-    uploader: AssetUploader,
-    private readonly mintingContractAddress: MaybeHexString,
-    private readonly network: NetworkType,
+    public readonly projectPath: string,
+    private readonly account: AptosAccount,
+    public readonly mintingContractAddress: MaybeHexString,
+    public readonly network: NetworkType,
   ) {
+    const uploader = new BundlrUploader(account, network);
+    const nodeURL = network === MAINNET ? MAINNET_APTOS_URL : TESTNET_APTOS_URL;
     this.db = new Database(path.join(projectPath, "minting.sqlite"));
     // Wait for up to two minutes when others are holding the lock
     this.db.configure("busyTimeout", 1200000);
-    this.projectPath = projectPath;
-    this.config = this.readProjectConfig();
-    this.account = account;
+    this.projectPath = projectPath ?? ".";
+    this.config = readProjectConfig(projectPath);
     this.uploader = uploader;
     this.client = new AptosClient(nodeURL);
     this.tokenClient = new TokenClient(this.client);
@@ -439,13 +441,6 @@ export class NFTMint {
     });
 
     return config;
-  }
-
-  readProjectConfig(): any {
-    const configBuf = fs.readFileSync(
-      path.join(this.projectPath, "config.json"),
-    );
-    return JSON.parse(configBuf.toString("utf8"));
   }
 
   // create shared account for royalty
