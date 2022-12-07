@@ -20,7 +20,7 @@ import invariant from "tiny-invariant";
 import chalk from "chalk";
 import { exit } from "process";
 import { AssetUploader } from "./asset-uploader";
-import { dateTimeStrToUnixSecs } from "./utils";
+import { dateTimeStrToUnixSecs, NetworkType } from "./utils";
 
 // This class gets the minting contract ready for lazy minting.
 export class NFTMint {
@@ -50,7 +50,7 @@ export class NFTMint {
     nodeURL: string,
     uploader: AssetUploader,
     private readonly mintingContractAddress: MaybeHexString,
-    private readonly network: "mainnet" | "testnet",
+    private readonly network: NetworkType,
   ) {
     this.db = new Database(path.join(projectPath, "minting.sqlite"));
     // Wait for up to two minutes when others are holding the lock
