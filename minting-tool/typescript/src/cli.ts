@@ -52,15 +52,16 @@ program
     "--contract-address <contract-address>",
     "The address of the minting contract.",
   )
-  .option("--project-path <project-path>", "The path to the NFT project")
+  .option("--project-path <project-path>", "The path to the NFT project", ".")
   .action(async ({ projectPath, contractAddress }) => {
     await setMintingContractAddress(projectPath, contractAddress);
+    console.log(`Set contract address to ${contractAddress}`);
   });
 
 program
   .command("validate")
   .description("Validate if the config of a project is valid.")
-  .option("--project-path <project-path>", "The path to the NFT project")
+  .option("--project-path <project-path>", "The path to the NFT project", ".")
   .option("--check-asset-hashes")
   .action(({ projectPath, checkAssetHashes }) => {
     assertProjectValid(projectPath, true, checkAssetHashes || false);
@@ -107,7 +108,7 @@ program
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
-  .option("--project-path <project-path>", "The path to the NFT project")
+  .option("--project-path <project-path>", "The path to the NFT project", ".")
   .action(async ({ projectPath, profile, mintingContract }) => {
     assertProjectValid(projectPath, true);
     const mintingEngine = await createNFTMintingEngine({
@@ -141,7 +142,7 @@ program
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
-  .option("--project-path <project-path>", "The path to the NFT project")
+  .option("--project-path <project-path>", "The path to the NFT project", ".")
   .action(
     async ({ addresses, limit, profile, mintingContract, projectPath }) => {
       const mintingEngine = await createNFTMintingEngine({
@@ -165,7 +166,7 @@ program
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
-  .option("--project-path <project-path>", "The path to the NFT project")
+  .option("--project-path <project-path>", "The path to the NFT project", ".")
   .action(async ({ profile, mintingContract, projectPath }) => {
     assertProjectValid(projectPath, true);
 

@@ -8,7 +8,7 @@
   "main": "./dist/src/cli.js",
   "bin": "./dist/src/cli.js",
   "scripts": {
-    "build": "rm -rf dist && tsc -p .",
+    "build": "rm -rf dist && tsc -p . && cp -r src/templates dist/src",
     "test": "jest",
     "typedoc": "rm -rf docs && typedoc",
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
