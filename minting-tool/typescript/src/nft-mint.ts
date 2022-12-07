@@ -64,6 +64,9 @@ export class NFTMint {
     this.dbGet = util.promisify(this.db.get.bind(this.db));
     this.dbRun = util.promisify(this.db.run.bind(this.db));
     this.dbAll = util.promisify(this.db.all.bind(this.db));
+    this.mintingContractAddress = HexString.ensure(
+      mintingContractAddress,
+    ).hex();
   }
 
   getExplorerLink(txnHash: string): string {
