@@ -46,6 +46,18 @@ program
   });
 
 program
+  .command("set-minting-contract")
+  .description("Set the minting contract address for a project.")
+  .requiredOption(
+    "--contract-address <contract-address>",
+    "The address of the minting contract.",
+  )
+  .option("--project-path <project-path>", "The path to the NFT project")
+  .action(async ({ projectPath, contractAddress }) => {
+    await setMintingContractAddress(projectPath, contractAddress);
+  });
+
+program
   .command("validate")
   .description("Validate if the config of a project is valid.")
   .option("--project-path <project-path>", "The path to the NFT project")
@@ -91,21 +103,19 @@ program
     "--profile <aptos-cli-profile>",
     "The profile name of the Aptos CLI.",
   )
-  .requiredOption(
+  .option(
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
   .option("--project-path <project-path>", "The path to the NFT project")
   .action(async ({ projectPath, profile, mintingContract }) => {
     assertProjectValid(projectPath, true);
-
-    const [account, network] = await resolveProfile(profile);
-    const mintingEngine = new NFTMint(
+    const mintingEngine = await createNFTMintingEngine({
       projectPath,
-      account,
-      network,
+      profile,
       mintingContract,
-    );
+    });
+
     await mintingEngine.setMintingTimeAndPrice();
     console.log("Minting time and price are updated successfully");
   });
@@ -127,21 +137,18 @@ program
     "--profile <aptos-cli-profile>",
     "The profile name of the Aptos CLI.",
   )
-  .requiredOption(
+  .option(
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
   .option("--project-path <project-path>", "The path to the NFT project")
   .action(
     async ({ addresses, limit, profile, mintingContract, projectPath }) => {
-      const [account, network] = await resolveProfile(profile);
-
-      const mintingEngine = new NFTMint(
+      const mintingEngine = await createNFTMintingEngine({
         projectPath,
-        account,
-        network,
+        profile,
         mintingContract,
-      );
+      });
       await mintingEngine.addToWhiteList(addresses.split(","), limit);
       console.log("Addresses are whitelisted successfully");
     },
@@ -154,7 +161,7 @@ program
     "--profile <aptos-cli-profile>",
     "The profile name of the Aptos CLI.",
   )
-  .requiredOption(
+  .option(
     "--minting-contract <contract-address>",
     "The on-chain address of the minting contract.",
   )
@@ -162,13 +169,11 @@ program
   .action(async ({ profile, mintingContract, projectPath }) => {
     assertProjectValid(projectPath, true);
 
-    const [account, network] = await resolveProfile(profile);
-    const mintingEngine = new NFTMint(
+    const mintingEngine = await createNFTMintingEngine({
       projectPath,
-      account,
-      network,
+      profile,
       mintingContract,
-    );
+    });
     await mintingEngine.run();
   });
 
@@ -560,6 +565,38 @@ function assertProjectValid(
   if (errors.length > 0) {
     exit(1);
   }
+}
+
+async function createNFTMintingEngine({
+  projectPath,
+  profile,
+  mintingContract,
+}: {
+  projectPath: string;
+  profile: string;
+  mintingContract: string;
+}): Promise<NFTMint> {
+  const [account, network] = await resolveProfile(profile);
+  const nftContract =
+    mintingContract || readProjectConfig(projectPath)?.contractAddress;
+  if (!nftContract) {
+    throw new Error("Minting contract address is unknown.");
+  }
+  return new NFTMint(projectPath, account, nftContract, network);
+}
+
+async function setMintingContractAddress(
+  projectPath: string,
+  contractAddress: string,
+) {
+  const config = readProjectConfig(projectPath);
+  config.contractAddress = contractAddress;
+
+  await fs.promises.writeFile(
+    `${resolvePath(projectPath)}/config.json`,
+    JSON.stringify(config, null, 4),
+    "utf8",
+  );
 }
 
 async function run() {
