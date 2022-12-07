@@ -2,7 +2,6 @@
 /* eslint-disable max-len */
 
 import fs from "fs";
-import os from "os";
 import { exit } from "process";
 import chalk from "chalk";
 import globby from "globby";
@@ -11,7 +10,6 @@ import prompts from "prompts";
 import Bundlr from "@bundlr-network/client";
 import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import { program } from "commander";
-import YAML from "yaml";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
@@ -23,9 +21,12 @@ import {
   TESTNET_APTOS_URL,
   TESTNET_BUNDLR_URL,
   MAINNET,
-  TESTNET,
   NetworkType,
   resolvePath,
+  resolveProfile,
+  octasToApt,
+  readProjectConfig,
+  exitWithError,
 } from "./utils";
 
 program
@@ -52,7 +53,7 @@ program
   .option("--project-path <project-path>", "The path to the NFT project")
   .option("--check-asset-hashes")
   .action(({ projectPath, checkAssetHashes }) => {
-    validateProject(projectPath, true, checkAssetHashes || false);
+    assertProjectValid(projectPath, true, checkAssetHashes || false);
   });
 
 program
@@ -98,7 +99,8 @@ program
   )
   .option("--project-path <project-path>", "The path to the NFT project")
   .action(async ({ projectPath, profile, mintingContract }) => {
-    if (!validateProject(projectPath, true)) exit(1);
+    assertProjectValid(projectPath, true);
+
     const [account, network] = await resolveProfile(profile);
     const mintingEngine = await createMintingEngine({
       account,
@@ -160,7 +162,7 @@ program
   )
   .option("--project-path <project-path>", "The path to the NFT project")
   .action(async ({ profile, mintingContract, projectPath }) => {
-    if (!validateProject(projectPath, true)) exit(1);
+    assertProjectValid(projectPath, true);
 
     const [account, network] = await resolveProfile(profile);
     const mintingEngine = await createMintingEngine({
@@ -171,11 +173,6 @@ program
     });
     await mintingEngine.run();
   });
-
-function exitWithError(message: string) {
-  console.error(chalk.red(message));
-  exit(1);
-}
 
 async function initProject(name: string, assetPath: string) {
   const fullPath = `./${name}`;
@@ -393,10 +390,6 @@ async function checkHashLipsAsset(assetPath: string) {
   });
 }
 
-function octasToApt(amount: string): string {
-  return (Number.parseInt(amount, 10) / 100000000).toFixed(2);
-}
-
 async function fundBundlr(
   account: AptosAccount,
   amount: string,
@@ -436,16 +429,12 @@ async function getBundlrBalance(
   console.log(`${balance} OCTAS (${octasToApt(balance.toString())} APTs)`);
 }
 
-function validateProject(
-  project: string,
+function assertProjectValid(
+  projectPath: string,
   print: boolean,
   checkAssetHashes: boolean = false,
-): boolean {
-  const projectPath = project || ".";
-
-  const configBuf = fs.readFileSync(path.join(projectPath, "config.json"));
-
-  const config = JSON.parse(configBuf.toString("utf8"));
+) {
+  const config = readProjectConfig(projectPath);
   const { collection } = config;
 
   const errors: string[] = [];
@@ -550,12 +539,11 @@ function validateProject(
 
       const hashHex = HexString.fromUint8Array(hash.digest()).hex();
       if (assetHashMap.has(hashHex)) {
-        console.error(
+        exitWithError(
           `${token.name} and ${assetHashMap.get(
             hashHex,
           )} have the same asset files!`,
         );
-        exit(1);
       } else {
         assetHashMap.set(hashHex, token.name);
       }
@@ -571,7 +559,9 @@ function validateProject(
     }
   }
 
-  return errors.length === 0;
+  if (errors.length > 0) {
+    exit(1);
+  }
 }
 
 async function createMintingEngine({
@@ -592,54 +582,12 @@ async function createMintingEngine({
   );
 }
 
-async function resolveProfile(
-  profileName: string,
-): Promise<[AptosAccount, "mainnet" | "testnet"]> {
-  // Check if Aptos CLI config file exists
-  const cliConfigFile = resolvePath(os.homedir(), ".aptos/config.yaml");
-  if (!fs.existsSync(cliConfigFile)) {
-    throw new Error(
-      "Cannot find the global config for Aptos CLI. Did you forget to run command 'aptos config set-global-config --config-type global && aptos init --profile <profile-name>'?",
-    );
-  }
-
-  const configBuf = await fs.promises.readFile(cliConfigFile);
-  const config = YAML.parse(configBuf.toString("utf8"));
-  if (!config?.profiles?.[profileName]) {
-    throw new Error(
-      `Profile '${profileName}' is not found. Run command 'aptos config show-global-config' to make sure the config type is "Global". Run command 'aptos config show-profiles' to see available profiles.`,
-    );
-  }
-
-  const profile = config.profiles[profileName];
-
-  if (!profile.private_key || !profile.rest_url) {
-    throw new Error(`Profile '${profileName}' format is invalid.`);
-  }
-
-  let network = "";
-
-  if (profile.rest_url.includes(TESTNET)) {
-    network = TESTNET;
-  }
-
-  if (profile.rest_url.includes(MAINNET)) {
-    network = MAINNET;
-  }
-
-  if (network !== TESTNET && network !== MAINNET) {
-    throw new Error(
-      `Make sure profile '${profileName}' points to '${TESTNET}' or '${MAINNET}'. Run command 'aptos config show-profiles --profile ${profileName}' to see profile details.`,
-    );
-  }
-
-  return [
-    new AptosAccount(new HexString(profile.private_key).toUint8Array()),
-    network,
-  ];
-}
-
 async function run() {
   program.parse();
 }
+
+process.on("uncaughtException", (err: Error) => {
+  exitWithError(err.message);
+});
+
 run();

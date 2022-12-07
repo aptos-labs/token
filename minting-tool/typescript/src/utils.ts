@@ -1,6 +1,12 @@
+/* eslint-disable max-len */
+import { AptosAccount, HexString } from "aptos";
+import chalk from "chalk";
 import fs from "fs";
+import os from "os";
 import path from "path";
+import { exit } from "process";
 import untildify from "untildify";
+import YAML from "yaml";
 
 export const MAINNET_BUNDLR_URL = "https://node1.bundlr.network";
 export const TESTNET_BUNDLR_URL = "https://devnet.bundlr.network";
@@ -27,4 +33,60 @@ export function readProjectConfig(project: string): any {
 export function resolvePath(p: string, ...rest: string[]): string {
   if (!p) return "";
   return path.resolve(untildify(p), ...rest);
+}
+
+export async function resolveProfile(
+  profileName: string,
+): Promise<[AptosAccount, NetworkType]> {
+  // Check if Aptos CLI config file exists
+  const cliConfigFile = resolvePath(os.homedir(), ".aptos/config.yaml");
+  if (!fs.existsSync(cliConfigFile)) {
+    throw new Error(
+      "Cannot find the global config for Aptos CLI. Did you forget to run command 'aptos config set-global-config --config-type global && aptos init --profile <profile-name>'?",
+    );
+  }
+
+  const configBuf = await fs.promises.readFile(cliConfigFile);
+  const config = YAML.parse(configBuf.toString("utf8"));
+  if (!config?.profiles?.[profileName]) {
+    throw new Error(
+      `Profile '${profileName}' is not found. Run command 'aptos config show-global-config' to make sure the config type is "Global". Run command 'aptos config show-profiles' to see available profiles.`,
+    );
+  }
+
+  const profile = config.profiles[profileName];
+
+  if (!profile.private_key || !profile.rest_url) {
+    throw new Error(`Profile '${profileName}' format is invalid.`);
+  }
+
+  let network = "";
+
+  if (profile.rest_url.includes(TESTNET)) {
+    network = TESTNET;
+  }
+
+  if (profile.rest_url.includes(MAINNET)) {
+    network = MAINNET;
+  }
+
+  if (network !== TESTNET && network !== MAINNET) {
+    throw new Error(
+      `Make sure profile '${profileName}' points to '${TESTNET}' or '${MAINNET}'. Run command 'aptos config show-profiles --profile ${profileName}' to see profile details.`,
+    );
+  }
+
+  return [
+    new AptosAccount(new HexString(profile.private_key).toUint8Array()),
+    network,
+  ];
+}
+
+export function octasToApt(amount: string): string {
+  return (Number.parseInt(amount, 10) / 100000000).toFixed(2);
+}
+
+export function exitWithError(message: string) {
+  console.error(chalk.red(message));
+  exit(1);
 }
