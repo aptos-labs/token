@@ -10,6 +10,7 @@ import prompts from "prompts";
 import Bundlr from "@bundlr-network/client";
 import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import { program } from "commander";
+import cluster from "node:cluster";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
@@ -168,7 +169,10 @@ program
   )
   .option("--project-path <project-path>", "The path to the NFT project", ".")
   .action(async ({ profile, mintingContract, projectPath }) => {
-    assertProjectValid(projectPath, true);
+    // Only primary process needs to validate the project.
+    if (cluster.isPrimary) {
+      assertProjectValid(projectPath, true);
+    }
 
     const mintingEngine = await createNFTMintingEngine({
       projectPath,
