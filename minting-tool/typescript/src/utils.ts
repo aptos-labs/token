@@ -90,3 +90,25 @@ export function exitWithError(message: string) {
   console.error(chalk.red(message));
   exit(1);
 }
+
+export class MapWithDefault<K, V> extends Map<K, V> {
+  private readonly default: () => V;
+
+  get(key: K) {
+    if (!this.has(key)) {
+      this.set(key, this.default());
+    }
+    return super.get(key);
+  }
+
+  constructor(defaultFunction: () => V) {
+    super();
+    this.default = defaultFunction;
+  }
+}
+
+export async function sleep(timeMs: number): Promise<null> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, timeMs);
+  });
+}

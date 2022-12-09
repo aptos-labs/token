@@ -12,19 +12,26 @@ import path from "path";
 import util from "util";
 import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import canonicalize from "canonicalize";
+import cluster from "node:cluster";
+import { cpus } from "node:os";
 
 import fs from "fs";
 
 import chalk from "chalk";
+import { exit } from "process";
 import { AssetUploader, BundlrUploader } from "./asset-uploader";
 import {
   dateTimeStrToUnixSecs,
   MAINNET,
   MAINNET_APTOS_URL,
+  MapWithDefault,
   NetworkType,
   readProjectConfig,
+  sleep,
   TESTNET_APTOS_URL,
 } from "./utils";
+
+const numCPUs = Math.max(20, cpus().length);
 
 // This class gets the minting contract ready for lazy minting.
 export class NFTMint {
@@ -41,6 +48,8 @@ export class NFTMint {
   private dbRun: (sql: string) => Promise<unknown>;
 
   private dbAll: (sql: string) => Promise<unknown>;
+
+  exitWorkers: number;
 
   constructor(
     public readonly projectPath: string,
@@ -63,6 +72,7 @@ export class NFTMint {
     this.mintingContractAddress = HexString.ensure(
       mintingContractAddress,
     ).hex();
+    this.exitWorkers = 0;
   }
 
   getExplorerLink(txnHash: string): string {
@@ -391,21 +401,69 @@ export class NFTMint {
     console.log(chalk.greenBright("All tasks are done"));
   }
 
+  private generateTaskIds(): MapWithDefault<number, number[]> {
+    const cpuTaskQeue = new MapWithDefault<number, number[]>(() => []);
+
+    const taskIds = this.config.tokens.map((_: any, i: number) => i);
+    for (let i = 0; i < numCPUs && taskIds.length > 0; i += 1) {
+      const task = taskIds[0];
+      cpuTaskQeue.get(i)!.push(task);
+      taskIds.shift();
+    }
+
+    return cpuTaskQeue;
+  }
+
+  private forkWorkers(env: { [key: string]: any }) {
+    const taskIds = this.generateTaskIds();
+    // Fork workers.
+    for (let i = 0; i < numCPUs; i += 1) {
+      if (taskIds.has(i)) {
+        cluster.fork({ TASKS: JSON.stringify(taskIds.get(i)), ...env });
+      }
+    }
+  }
+
+  private async joinWorkers() {
+    this.exitWorkers = 0;
+    const numberTasks = this.generateTaskIds().size;
+
+    while (this.exitWorkers < numberTasks) {
+      await sleep(2000);
+    }
+  }
+
   // Run in parallel for a large number of assets
   async run() {
-    const config = await this.validateProjectFolder();
+    if (cluster.isPrimary) {
+      cluster.on("exit", () => {
+        this.exitWorkers += 1;
+      });
+      const config = await this.validateProjectFolder();
 
-    await this.ensureTablesExist();
-    await this.loadTasks(config);
+      await this.ensureTablesExist();
+      await this.loadTasks(config);
 
-    // Upload the collection asset
-    await this.uploadCollectionImageTask(config.collection);
+      // Upload the collection asset
+      await this.uploadCollectionImageTask(config.collection);
 
-    // Upload the token assets
-    for (let i = 0; i < config.tokens.length; i += 1) {
-      const token = config.tokens[i];
-      await this.uploadTokenImageTask(token, i);
+      // Fork workers
+      this.forkWorkers({ STEP: "upload_token_assets" });
+    } else if (process.env.STEP === "upload_token_assets") {
+      // In worker
+      const tasks = JSON.parse(process.env.TASKS || "[]");
+      // Upload the token assets
+      for (let i = 0; i < tasks.length; i += 1) {
+        const tokenIndex = tasks[i];
+        const token = this.config.tokens[tokenIndex];
+        await this.uploadTokenImageTask(token, tokenIndex);
+      }
+      // Make sure workers exit here
+      exit(0);
     }
+
+    // Now, we are back to the primary process
+    await this.joinWorkers();
 
     // Create the collection
     await this.setCollectionConfigTask();
@@ -414,8 +472,8 @@ export class NFTMint {
     await this.setMintingTimeAndPriceTask();
 
     // Add tokens
-    for (let i = 0; i < config.tokens.length; i += 1) {
-      const token = config.tokens[i];
+    for (let i = 0; i < this.config.tokens.length; i += 1) {
+      const token = this.config.tokens[i];
       await this.addTokensTask(token, i);
     }
 
