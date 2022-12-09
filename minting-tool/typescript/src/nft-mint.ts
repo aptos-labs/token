@@ -4,7 +4,6 @@ import {
   AptosAccount,
   AptosClient,
   HexString,
-  TokenClient,
   MaybeHexString,
   getPropertyValueRaw,
 } from "aptos";
@@ -29,8 +28,6 @@ import {
 
 // This class gets the minting contract ready for lazy minting.
 export class NFTMint {
-  private readonly tokenClient: TokenClient;
-
   private readonly client: AptosClient;
 
   private readonly uploader: AssetUploader;
@@ -60,7 +57,6 @@ export class NFTMint {
     this.config = readProjectConfig(projectPath);
     this.uploader = uploader;
     this.client = new AptosClient(nodeURL);
-    this.tokenClient = new TokenClient(this.client);
     this.dbGet = util.promisify(this.db.get.bind(this.db));
     this.dbRun = util.promisify(this.db.run.bind(this.db));
     this.dbAll = util.promisify(this.db.all.bind(this.db));
