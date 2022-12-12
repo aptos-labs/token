@@ -405,10 +405,12 @@ export class NFTMint {
     const cpuTaskQeue = new MapWithDefault<number, number[]>(() => []);
 
     const taskIds = this.config.tokens.map((_: any, i: number) => i);
-    for (let i = 0; i < numCPUs && taskIds.length > 0; i += 1) {
+    let i = 0;
+    while (taskIds.length > 0) {
       const task = taskIds[0];
-      cpuTaskQeue.get(i)!.push(task);
+      cpuTaskQeue.get(i % numCPUs)!.push(task);
       taskIds.shift();
+      i += 1;
     }
 
     return cpuTaskQeue;
@@ -510,24 +512,13 @@ export class NFTMint {
   // construct the final json with URL and input config
   async uploadOffChainMetaData(
     assetPath: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     metaData: { [key: string]: any },
   ): Promise<[string, string]> {
     const dataId = await this.uploader.uploadFile(assetPath);
     const url = this.createArweaveURLfromId(dataId);
 
-    const meta: any = { ...metaData, image: url };
-    delete meta.file_path;
-
-    const canonicalizedMeta = canonicalize(meta)!;
-    const tmp = await fs.promises.mkdtemp("temp");
-    const metaPath = path.join(tmp, "metadata.json");
-    await fs.promises.writeFile(metaPath, canonicalizedMeta);
-
-    const jsonId = await this.uploader.uploadFile(metaPath);
-
-    // Now we can remove the temp folder
-    await fs.promises.rm(tmp, { recursive: true });
-    return [url, jsonId];
+    return [url, ""];
   }
 
   createArweaveURLfromId(dataId: string): string {
