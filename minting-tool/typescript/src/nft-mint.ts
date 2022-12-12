@@ -191,39 +191,53 @@ export class NFTMint {
       throw new Error("Collection asset url is not available.");
     }
 
-    const collectionUri = row.extra_data;
+    let mintingConfigExists = false;
+    try {
+      // Check if the mint config actually exists
+      await this.client.getAccountResource(
+        this.mintingContractAddress,
+        `${this.mintingContractAddress}::minting::NFTMintConfig`,
+      );
 
-    const { collection } = this.config;
+      mintingConfigExists = true;
+      // eslint-disable-next-line no-empty
+    } catch (e) {}
 
-    const rawTxn = await this.client.generateTransaction(
-      this.account.address(),
-      {
-        function: `${this.mintingContractAddress}::minting::set_collection_config_and_create_collection`,
-        type_arguments: [],
-        arguments: [
-          collection.name,
-          collection.description,
-          collection.maximum,
-          collectionUri,
-          collection.mutability_config,
-          collection.token_name_base,
-          this.config.royalty_payee_account,
-          collection.token_description,
-          1, // TODO: remove the hard coded value for token_maximum
-          collection.token_mutate_config,
-          this.config.royalty_points_denominator,
-          this.config.royalty_points_numerator,
-        ],
-      },
-    );
+    if (!mintingConfigExists) {
+      const collectionUri = row.extra_data;
 
-    const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
-    const pendingTxn = await this.client.submitTransaction(bcsTxn);
+      const { collection } = this.config;
 
-    await this.checkTxnSuccessWithMessage(
-      pendingTxn.hash,
-      "Failed to set collection config and create collection.",
-    );
+      const rawTxn = await this.client.generateTransaction(
+        this.account.address(),
+        {
+          function: `${this.mintingContractAddress}::minting::set_collection_config_and_create_collection`,
+          type_arguments: [],
+          arguments: [
+            collection.name,
+            collection.description,
+            collection.maximum,
+            collectionUri,
+            collection.mutability_config,
+            collection.token_name_base,
+            this.config.royalty_payee_account,
+            collection.token_description,
+            1, // TODO: remove the hard coded value for token_maximum
+            collection.token_mutate_config,
+            this.config.royalty_points_denominator,
+            this.config.royalty_points_numerator,
+          ],
+        },
+      );
+
+      const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
+      const pendingTxn = await this.client.submitTransaction(bcsTxn);
+
+      await this.checkTxnSuccessWithMessage(
+        pendingTxn.hash,
+        "Failed to set collection config and create collection.",
+      );
+    }
 
     await this.dbRun(
       "UPDATE tasks set finished = 1 where type = 'set_collection_config' and name = 'set_collection_config'",
