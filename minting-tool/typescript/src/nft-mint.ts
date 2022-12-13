@@ -174,7 +174,7 @@ export class NFTMint {
       // If the mint config actually exists, return early.
       await this.client.getAccountResource(
         this.mintingContractAddress,
-        `${this.mintingContractAddress}::minting::NFTMintConfig`,
+        `${this.mintingContractAddress}::minting::CollectionConfig`,
       );
 
       return;
