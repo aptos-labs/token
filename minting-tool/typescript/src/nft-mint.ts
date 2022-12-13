@@ -101,11 +101,7 @@ export class NFTMint {
   }
 
   async insertTask(
-    taskType:
-      | "collection_img_upload"
-      | "token"
-      | "set_collection_config"
-      | "set_minting_time_and_price",
+    taskType: "collection_img_upload" | "token" | "set_minting_time_and_price",
     name: string,
   ) {
     const row = await this.dbGet(
@@ -121,7 +117,6 @@ export class NFTMint {
 
   // Theses tasks can be ran on multiple cpu cores
   async loadTasks(config: Record<string, any>) {
-    await this.insertTask("set_collection_config", "set_collection_config");
     await this.insertTask(
       "set_minting_time_and_price",
       "set_minting_time_and_price",
@@ -175,15 +170,18 @@ export class NFTMint {
   }
 
   async setCollectionConfigTask() {
-    let row: any = await this.dbGet(
-      "SELECT * FROM tasks where type = 'set_collection_config' and name = 'set_collection_config'",
-    );
+    try {
+      // If the mint config actually exists, return early.
+      await this.client.getAccountResource(
+        this.mintingContractAddress,
+        `${this.mintingContractAddress}::minting::NFTMintConfig`,
+      );
 
-    if (row?.finished) {
       return;
-    }
+      // eslint-disable-next-line no-empty
+    } catch (e) {}
 
-    row = await this.dbGet(
+    const row: any = await this.dbGet(
       `SELECT extra_data FROM tasks where type = 'collection_img_upload' and name = '${this.config.collection.name}'`,
     );
 
@@ -191,56 +189,38 @@ export class NFTMint {
       throw new Error("Collection asset url is not available.");
     }
 
-    let mintingConfigExists = false;
-    try {
-      // Check if the mint config actually exists
-      await this.client.getAccountResource(
-        this.mintingContractAddress,
-        `${this.mintingContractAddress}::minting::NFTMintConfig`,
-      );
+    const collectionUri = row.extra_data;
 
-      mintingConfigExists = true;
-      // eslint-disable-next-line no-empty
-    } catch (e) {}
+    const { collection } = this.config;
 
-    if (!mintingConfigExists) {
-      const collectionUri = row.extra_data;
+    const rawTxn = await this.client.generateTransaction(
+      this.account.address(),
+      {
+        function: `${this.mintingContractAddress}::minting::set_collection_config_and_create_collection`,
+        type_arguments: [],
+        arguments: [
+          collection.name,
+          collection.description,
+          collection.maximum,
+          collectionUri,
+          collection.mutability_config,
+          collection.token_name_base,
+          this.config.royalty_payee_account,
+          collection.token_description,
+          1, // TODO: remove the hard coded value for token_maximum
+          collection.token_mutate_config,
+          this.config.royalty_points_denominator,
+          this.config.royalty_points_numerator,
+        ],
+      },
+    );
 
-      const { collection } = this.config;
+    const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
+    const pendingTxn = await this.client.submitTransaction(bcsTxn);
 
-      const rawTxn = await this.client.generateTransaction(
-        this.account.address(),
-        {
-          function: `${this.mintingContractAddress}::minting::set_collection_config_and_create_collection`,
-          type_arguments: [],
-          arguments: [
-            collection.name,
-            collection.description,
-            collection.maximum,
-            collectionUri,
-            collection.mutability_config,
-            collection.token_name_base,
-            this.config.royalty_payee_account,
-            collection.token_description,
-            1, // TODO: remove the hard coded value for token_maximum
-            collection.token_mutate_config,
-            this.config.royalty_points_denominator,
-            this.config.royalty_points_numerator,
-          ],
-        },
-      );
-
-      const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
-      const pendingTxn = await this.client.submitTransaction(bcsTxn);
-
-      await this.checkTxnSuccessWithMessage(
-        pendingTxn.hash,
-        "Failed to set collection config and create collection.",
-      );
-    }
-
-    await this.dbRun(
-      "UPDATE tasks set finished = 1 where type = 'set_collection_config' and name = 'set_collection_config'",
+    await this.checkTxnSuccessWithMessage(
+      pendingTxn.hash,
+      "Failed to set collection config and create collection.",
     );
   }
 
