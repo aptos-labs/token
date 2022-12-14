@@ -181,7 +181,7 @@ module mint_nft::minting {
         } else {
             let resource_account = create_signer_with_capability(&nft_mint_config.signer_cap);
             move_to(&resource_account, WhitelistMintConfig {
-                whitelisted_address: new<address, u64>(128),
+                whitelisted_address: new<address, u64>(8),
                 whitelist_minting_start_time,
                 whitelist_minting_end_time,
                 whitelist_mint_price,
@@ -297,10 +297,7 @@ module mint_nft::minting {
                 *limit = *limit - amount;
             };
         };
-        while (amount > 0) {
-            mint(nft_claimer, price);
-            amount = amount - 1;
-        };
+        mint(nft_claimer, price, amount);
     }
 
     public fun acquire_resource_signer(
@@ -315,53 +312,58 @@ module mint_nft::minting {
     //   private helper functions //
     // ======================================================================
 
-    fun mint(nft_claimer: &signer, price: u64) acquires NFTMintConfig, CollectionConfig {
-        let now = timestamp::now_microseconds();
+    fun mint(nft_claimer: &signer, price: u64, amount: u64) acquires NFTMintConfig, CollectionConfig {
         let nft_mint_config = borrow_global_mut<NFTMintConfig>(@mint_nft);
         let collection_config = borrow_global_mut<CollectionConfig>(@mint_nft);
         // assert there's still some tokens in the vector
-        assert!(big_vector::length(&collection_config.tokens) > 0, error::resource_exhausted(ENO_ENOUGH_TOKENS_LEFT));
+        assert!(big_vector::length(&collection_config.tokens) >= amount, error::resource_exhausted(ENO_ENOUGH_TOKENS_LEFT));
 
-        coin::transfer<AptosCoin>(nft_claimer, nft_mint_config.treasury, price);
-
-        let index = now % big_vector::length(&collection_config.tokens);
-        let bucket_index = big_vector::bucket_index(&collection_config.tokens, index);
-        let token = big_vector::swap_remove(&mut collection_config.tokens, &bucket_index);
+        coin::transfer<AptosCoin>(nft_claimer, nft_mint_config.treasury, price * amount);
         let token_name = collection_config.token_name_base;
         string::append_utf8(&mut token_name, b": ");
-        let num = u64_to_string(collection_config.token_counter);
-        string::append(&mut token_name, num);
 
         let resource_signer = create_signer_with_capability(&nft_mint_config.signer_cap);
 
-        let token_data_id = create_tokendata(
-            &resource_signer,
-            collection_config.collection_name,
-            token_name,
-            collection_config.token_description,
-            collection_config.token_maximum,
-            token.token_uri,
-            collection_config.royalty_payee_address,
-            collection_config.royalty_points_den,
-            collection_config.royalty_points_num,
-            collection_config.token_mutate_config,
-            token.property_keys,
-            token.property_values,
-            token.property_types,
-        );
+        while(amount > 0) {
+            let now = timestamp::now_microseconds();
+            let index = now % big_vector::length(&collection_config.tokens);
+            let bucket_index = big_vector::bucket_index(&collection_config.tokens, index);
+            let token = big_vector::swap_remove(&mut collection_config.tokens, &bucket_index);
 
-        let token_id = token::mint_token(&resource_signer, token_data_id, 1);
-        token::direct_transfer(&resource_signer, nft_claimer, token_id, 1);
+            let curr_token_name = token_name;
+            let num = u64_to_string(collection_config.token_counter);
+            string::append(&mut curr_token_name, num);
 
-        collection_config.token_counter = collection_config.token_counter + 1;
+            let token_data_id = create_tokendata(
+                &resource_signer,
+                collection_config.collection_name,
+                curr_token_name,
+                collection_config.token_description,
+                collection_config.token_maximum,
+                token.token_uri,
+                collection_config.royalty_payee_address,
+                collection_config.royalty_points_den,
+                collection_config.royalty_points_num,
+                collection_config.token_mutate_config,
+                token.property_keys,
+                token.property_values,
+                token.property_types,
+            );
 
-        event::emit_event<NFTMintMintingEvent>(
-            &mut nft_mint_config.token_minting_events,
-            NFTMintMintingEvent {
-                token_receiver_address: signer::address_of(nft_claimer),
-                token_id,
-            }
-        );
+            let token_id = token::mint_token(&resource_signer, token_data_id, 1);
+            token::direct_transfer(&resource_signer, nft_claimer, token_id, 1);
+
+            collection_config.token_counter = collection_config.token_counter + 1;
+
+            event::emit_event<NFTMintMintingEvent>(
+                &mut nft_mint_config.token_minting_events,
+                NFTMintMintingEvent {
+                    token_receiver_address: signer::address_of(nft_claimer),
+                    token_id,
+                }
+            );
+            amount = amount - 1;
+        };
     }
 
     fun u64_to_string(value: u64): String {
