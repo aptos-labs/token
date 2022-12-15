@@ -1,6 +1,5 @@
 module mint_nft::minting {
     use std::error;
-    use std::option::{Self, Option};
     use std::signer;
     use std::string::{Self, String, utf8};
     use std::vector;
@@ -38,7 +37,7 @@ module mint_nft::minting {
         royalty_points_den: u64,
         royalty_points_num: u64,
         tokens: BigVector<TokenAsset>,
-        public_mint_limit: Option<u64>,
+        public_mint_limit_per_address: u64,
     }
 
     struct TokenAsset has drop, store {
@@ -120,7 +119,7 @@ module mint_nft::minting {
         token_mutate_config: vector<bool>,
         royalty_points_den: u64,
         royalty_points_num: u64,
-        public_mint_limit: Option<u64>,
+        public_mint_limit_per_address: u64,
     ) acquires NFTMintConfig {
         let nft_mint_config = borrow_global_mut<NFTMintConfig>(@mint_nft);
         assert!(signer::address_of(admin) == nft_mint_config.admin, error::permission_denied(ENOT_AUTHORIZED));
@@ -146,7 +145,8 @@ module mint_nft::minting {
             royalty_points_den,
             royalty_points_num,
             tokens: big_vector::new<TokenAsset>(128),
-            public_mint_limit,
+            // value 0 means that there's no limit
+            public_mint_limit_per_address,
         });
 
         let resource_signer = create_signer_with_capability(&nft_mint_config.signer_cap);
@@ -285,12 +285,12 @@ module mint_nft::minting {
             *remaining_mint_allowed = *remaining_mint_allowed - amount;
             price = whitelist_mint_config.whitelist_mint_price;
         } else {
-            if (option::is_some(&collection_config.public_mint_limit)) {
+            if (collection_config.public_mint_limit_per_address != 0) {
                 // If the claimer's address is not on the public_minting_addresses table yet, it means this is the
                 // first time that this claimer mints. We will add the claimer's address and remaining amount of mints
                 // to the public_minting_addresses table.
                 if (!bucket_table::contains(&public_mint_config.public_minting_addresses, &claimer_addr)) {
-                    bucket_table::add(&mut public_mint_config.public_minting_addresses, claimer_addr, *option::borrow(&collection_config.public_mint_limit));
+                    bucket_table::add(&mut public_mint_config.public_minting_addresses, claimer_addr, collection_config.public_mint_limit_per_address);
                 };
                 let limit = bucket_table::borrow_mut(&mut public_mint_config.public_minting_addresses, claimer_addr);
                 assert!(amount <= *limit, error::invalid_argument(EAMOUNT_EXCEEDS_MINTS_ALLOWED));
@@ -435,7 +435,7 @@ module mint_nft::minting {
             token_setting,
             1,
             0,
-            option::some<u64>(2),
+            2,
         );
 
         set_admin(source_account, signer::address_of(admin_account));
