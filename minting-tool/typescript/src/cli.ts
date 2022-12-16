@@ -11,6 +11,7 @@ import Bundlr from "@bundlr-network/client";
 import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import { program } from "commander";
 import cluster from "node:cluster";
+import short from "short-uuid";
 
 import { AptosAccount, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
@@ -26,6 +27,7 @@ import {
   octasToApt,
   readProjectConfig,
   exitWithError,
+  runWithAptosCLI,
 } from "./utils";
 
 program
@@ -182,6 +184,30 @@ program
     await mintingEngine.run();
   });
 
+program
+  .command("publish-contract")
+  .description(
+    "Build the smart contract with the Aptos CLI and publish the smart contract to a resource account",
+  )
+  .requiredOption(
+    "--profile <aptos-cli-profile>",
+    "The profile name of the Aptos CLI.",
+  )
+  .option(
+    "--resource-account-seed",
+    "The seed that is used to the resource account.",
+  )
+  .option("--project-path <project-path>", "The path to the NFT project", ".")
+  .action(async ({ profile, resourceAccountSeed, projectPath }) => {
+    const seed = resourceAccountSeed || short.generate();
+
+    const fullProjectPath = resolvePath(projectPath);
+
+    await runWithAptosCLI(
+      `aptos move create-resource-account-and-publish-package --seed ${seed} --package-dir ${fullProjectPath}/contracts --address-name mint_nft --named-addresses source_addr=${profile} --profile ${profile}`,
+    );
+  });
+
 async function initProject(name: string, assetPath: string) {
   const fullPath = `./${name}`;
   if (fs.existsSync(fullPath)) {
@@ -195,6 +221,11 @@ async function initProject(name: string, assetPath: string) {
   }
 
   fs.mkdirSync(fullPath, { recursive: true });
+
+  // We would like to pull in the smart contract to the project folder
+  fs.cpSync(`${__dirname}/contracts`, `${fullPath}/contracts`, {
+    recursive: true,
+  });
 
   let enableWL = false;
 

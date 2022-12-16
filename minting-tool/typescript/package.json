@@ -8,7 +8,7 @@
   "main": "./dist/src/cli.js",
   "bin": "./dist/src/cli.js",
   "scripts": {
-    "build": "rm -rf dist && tsc -p . && cp -r src/templates dist/src",
+    "build": "rm -rf dist && tsc -p . && cp -r src/templates dist/src && cp -r ../../contracts/mint_nft dist/src/contracts && rm -rf dist/src/contracts/build",
     "test": "jest",
     "typedoc": "rm -rf docs && typedoc",
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
@@ -36,6 +36,7 @@
     "commander": "^9.4.1",
     "globby": "11.0.4",
     "prompts": "^2.4.2",
+    "short-uuid": "^4.2.2",
     "sqlite3": "^5.1.2",
     "untildify": "^4.0.0",
     "yaml": "^2.1.3"

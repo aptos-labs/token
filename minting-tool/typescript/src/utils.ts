@@ -7,6 +7,7 @@ import path from "path";
 import { exit } from "process";
 import untildify from "untildify";
 import YAML from "yaml";
+import { exec, spawn } from "child_process";
 
 export const MAINNET_BUNDLR_URL = "https://node1.bundlr.network";
 export const TESTNET_BUNDLR_URL = "https://devnet.bundlr.network";
@@ -110,5 +111,36 @@ export class MapWithDefault<K, V> extends Map<K, V> {
 export async function sleep(timeMs: number): Promise<null> {
   return new Promise((resolve) => {
     setTimeout(resolve, timeMs);
+  });
+}
+
+async function ensureAptosCLIExists() {
+  return new Promise((resolve, reject) => {
+    exec("aptos --version", (error) => {
+      if (error) {
+        reject(new Error("The 'aptos' cli is not found."));
+        return;
+      }
+
+      resolve(undefined);
+    });
+  });
+}
+
+export async function runWithAptosCLI(cmd: string) {
+  await ensureAptosCLIExists();
+
+  return new Promise((resolve, reject) => {
+    const parts = cmd.split(" ");
+    const child = spawn(parts[0], parts.slice(1), {
+      stdio: [process.stdin, process.stdout, process.stderr],
+    });
+
+    child.on("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Failed to run ${cmd}`));
+      }
+      resolve(undefined);
+    });
   });
 }
