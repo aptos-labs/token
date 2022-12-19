@@ -211,6 +211,7 @@ export class NFTMint {
           collection.token_mutate_config,
           this.config.royalty_points_denominator,
           this.config.royalty_points_numerator,
+          this.config.max_mints_per_address,
         ],
       },
     );

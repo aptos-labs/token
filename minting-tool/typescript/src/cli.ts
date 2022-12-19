@@ -281,6 +281,12 @@ async function initProject(name: string, assetPath: string) {
     },
     {
       type: "number",
+      name: "maxMintsPerAddress",
+      message:
+        "Enter the maximum allowed mints per address. 0 means no limits.",
+    },
+    {
+      type: "number",
       name: "mintPrice",
       message: "Enter the public minting price in octas",
     },
@@ -341,6 +347,7 @@ async function initProject(name: string, assetPath: string) {
   outJson.mint_start = response.mintStart;
   outJson.mint_end = response.mintEnd;
   outJson.mint_price = response.mintPrice;
+  outJson.max_mints_per_address = response.maxMintsPerAddress || 0;
   outJson.royalty_points_numerator = response.royaltyPercent;
   outJson.royalty_points_denominator = 100;
   outJson.royalty_payee_account = response.royaltyPayeeAcct;
