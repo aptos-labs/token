@@ -13,7 +13,7 @@ import { program } from "commander";
 import cluster from "node:cluster";
 import short from "short-uuid";
 
-import { AptosAccount, HexString, MaybeHexString } from "aptos";
+import { AptosAccount, BCS, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
 import { BundlrUploader } from "./asset-uploader";
 import { NFTMint } from "./nft-mint";
@@ -199,13 +199,21 @@ program
   )
   .option("--project-path <project-path>", "The path to the NFT project", ".")
   .action(async ({ profile, resourceAccountSeed, projectPath }) => {
+    const [account] = await resolveProfile(profile);
     const seed = resourceAccountSeed || short.generate();
 
     const fullProjectPath = resolvePath(projectPath);
 
+    const resourceAccountAddr = AptosAccount.getResourceAccountAddress(
+      account.address(),
+      BCS.bcsSerializeStr(seed),
+    );
+
     await runWithAptosCLI(
       `aptos move create-resource-account-and-publish-package --seed ${seed} --package-dir ${fullProjectPath}/contracts --address-name mint_nft --named-addresses source_addr=${profile} --profile ${profile}`,
     );
+
+    await setMintingContractAddress(projectPath, resourceAccountAddr.hex());
   });
 
 async function initProject(name: string, assetPath: string) {
