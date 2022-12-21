@@ -6,6 +6,7 @@ import {
   HexString,
   MaybeHexString,
   getPropertyValueRaw,
+  TxnBuilderTypes,
 } from "aptos";
 import { Database } from "sqlite3";
 import path from "path";
@@ -33,6 +34,8 @@ import {
 
 const numCPUs = Math.max(20, cpus().length);
 
+const MAX_TXN_BATCH_SIZE = 40;
+
 // This class gets the minting contract ready for lazy minting.
 export class NFTMint {
   private readonly client: AptosClient;
@@ -48,6 +51,8 @@ export class NFTMint {
   private dbRun: (sql: string) => Promise<unknown>;
 
   private dbAll: (sql: string) => Promise<unknown>;
+
+  private txnBatchSize = MAX_TXN_BATCH_SIZE;
 
   exitWorkers: number;
 
@@ -73,6 +78,10 @@ export class NFTMint {
       mintingContractAddress,
     ).hex();
     this.exitWorkers = 0;
+
+    if (this.config.txnBatchSize) {
+      this.txnBatchSize = this.config.txnBatchSize;
+    }
   }
 
   getExplorerLink(txnHash: string): string {
@@ -291,6 +300,59 @@ export class NFTMint {
     );
   }
 
+  private async genAddTokensTxn(
+    tokens: [any, number][],
+  ): Promise<TxnBuilderTypes.RawTransaction> {
+    const tokenNames = tokens.map(([, i]) => `'${i}'`);
+
+    const query = `SELECT extra_data FROM tasks where type = 'token' and name in (${tokenNames.join(
+      ",",
+    )})`;
+
+    // Fetch the asset urls from local sqlite.
+    const rows: any = await this.dbAll(query);
+
+    if (!rows) {
+      throw new Error(`Failed to run query "${query}"`);
+    }
+
+    const urls = rows.map((row: any) => row.extra_data);
+
+    const propertyKeys: any[] = [];
+    const propertyValues: any[] = [];
+    const propertyTypes: any[] = [];
+
+    tokens.forEach(([token]) => {
+      const keys = [...token.property_map.property_keys];
+      const values = getPropertyValueRaw(
+        token.property_map.property_values,
+        token.property_map.property_types,
+      );
+      const types = [...token.property_map.property_types];
+
+      // We would store token attributes on chain too
+      token?.metadata?.attributes?.forEach((attr: any) => {
+        if (attr?.trait_type && attr?.value) {
+          keys?.unshift(attr?.trait_type);
+          values?.unshift(
+            ...getPropertyValueRaw([attr?.value], ["0x1::string::String"]),
+          );
+          types?.unshift("0x1::string::String");
+        }
+      });
+
+      propertyKeys.push(keys);
+      propertyValues.push(values);
+      propertyTypes.push(types);
+    });
+
+    return this.client.generateTransaction(this.account.address(), {
+      function: `${this.mintingContractAddress}::minting::add_tokens`,
+      type_arguments: [],
+      arguments: [urls, propertyKeys, propertyValues, propertyTypes],
+    });
+  }
+
   // WARNING: we are adding tokens one by one. This costs more gas. However, this will avoid the exception that
   // transaction size exceeds limits. For simplicity, we only support adding token one by one at the moment.
   async addTokensTask(token: any, i: number) {
@@ -304,34 +366,7 @@ export class NFTMint {
       return;
     }
 
-    const {
-      property_keys: propertyKeys,
-      property_values: propertyValues,
-      property_types: propertyTypes,
-    } = token.property_map;
-
-    // We would store token attributes on chain too
-    token?.metadata?.attributes?.forEach((attr: any) => {
-      if (attr?.trait_type && attr?.value) {
-        propertyKeys?.unshift(attr?.trait_type);
-        propertyValues?.unshift(attr?.value);
-        propertyTypes?.unshift("0x1::string::String");
-      }
-    });
-
-    const rawTxn = await this.client.generateTransaction(
-      this.account.address(),
-      {
-        function: `${this.mintingContractAddress}::minting::add_tokens`,
-        type_arguments: [],
-        arguments: [
-          [row.extra_data],
-          [propertyKeys],
-          [getPropertyValueRaw(propertyValues, propertyTypes)],
-          [propertyTypes],
-        ],
-      },
-    );
+    const rawTxn = await this.genAddTokensTxn([[token, i]]);
 
     const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
     const pendingTxn = await this.client.submitTransaction(bcsTxn);
@@ -345,6 +380,68 @@ export class NFTMint {
       `UPDATE tasks set finished = 2 where type = 'token' and name = '${row.name}'`,
     );
     console.log(`Token at index ${i} is added to the smart contract.`);
+  }
+
+  async addTokensBatchTask(tokens: [any, number][]) {
+    try {
+      const rawTxn = await this.genAddTokensTxn(tokens);
+
+      const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
+      const pendingTxn = await this.client.submitTransaction(bcsTxn);
+
+      const tokenNames = tokens.map(([, i]) => `'${i}'`);
+
+      await this.checkTxnSuccessWithMessage(
+        pendingTxn.hash,
+        `Failed to add the tokens at indices ${tokenNames.join(
+          ", ",
+        )} to smart contract.`,
+      );
+
+      await this.dbRun(
+        `UPDATE tasks set finished = 2 where type = 'token' and name in (${tokenNames.join(
+          ",",
+        )})`,
+      );
+
+      console.log(
+        `Tokens at indices ${tokenNames.join(
+          ", ",
+        )} are added to the smart contract.`,
+      );
+    } catch (e) {
+      // Falls back to single txn mode
+      for (let i = 0; i < tokens.length; i += 1) {
+        const [token, index] = tokens[i];
+        await this.addTokensTask(token, index);
+      }
+    }
+  }
+
+  async decideBatchSize() {
+    while (this.txnBatchSize > 1) {
+      try {
+        // Simulate token submittion, halve txnBatchSize if simulation failed
+        const batchTokens = this.config.tokens.slice(0, this.txnBatchSize);
+
+        const tokens = batchTokens.map((t: any, i: number) => [t, i]);
+
+        const rawTxn = await this.genAddTokensTxn(tokens);
+
+        const result = await this.client.simulateTransaction(
+          this.account,
+          rawTxn,
+        );
+
+        if (result?.[0].success) {
+          return;
+        }
+
+        this.txnBatchSize = Math.ceil(this.txnBatchSize / 2);
+      } catch (e) {
+        this.txnBatchSize = Math.ceil(this.txnBatchSize / 2);
+      }
+    }
   }
 
   async uploadCollectionImageTask(collection: any) {
@@ -468,10 +565,35 @@ export class NFTMint {
     // Set minting time
     await this.setMintingTimeAndPriceTask();
 
+    await this.decideBatchSize();
+
     // Add tokens
-    for (let i = 0; i < this.config.tokens.length; i += 1) {
-      const token = this.config.tokens[i];
-      await this.addTokensTask(token, i);
+    const rows: any = await this.dbAll(
+      "SELECT name FROM tasks where type = 'token' and finished = 1",
+    );
+    const tokensToBeAdded = rows
+      .map((r: any) => r.name)
+      .sort((a: string, b: string) => parseInt(a, 10) - parseInt(b, 10));
+
+    const batches: [any, number][][] = [];
+
+    let currentBatch: [any, number][] = [];
+    while (tokensToBeAdded.length > 0) {
+      const i = tokensToBeAdded.shift();
+      currentBatch.push([this.config.tokens[i], i]);
+
+      if (currentBatch.length === this.txnBatchSize) {
+        batches.push(currentBatch);
+        currentBatch = [];
+      }
+    }
+
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
+    }
+
+    for (let j = 0; j < batches.length; j += 1) {
+      await this.addTokensBatchTask(batches[j]);
     }
 
     await this.verifyAllTasksDone();
