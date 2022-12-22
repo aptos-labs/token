@@ -413,7 +413,12 @@ export class NFTMint {
       // Falls back to single txn mode
       for (let i = 0; i < tokens.length; i += 1) {
         const [token, index] = tokens[i];
-        await this.addTokensTask(token, index);
+        try {
+          // In single txn mode, we allow individual txn fail and continue with the rest.
+          // The reason is that some txns of the batch might have already been uploaded.
+          await this.addTokensTask(token, index);
+          // eslint-disable-next-line no-empty
+        } catch (err) {}
       }
     }
   }
