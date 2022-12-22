@@ -12,7 +12,7 @@ module mint_nft::minting {
     use aptos_framework::timestamp;
     use aptos_token::token::{Self, TokenMutabilityConfig, create_token_mutability_config, create_collection, create_tokendata, TokenId};
     use mint_nft::big_vector::{Self, BigVector};
-    use mint_nft::bucket_table::{Self, BucketTable, new};
+    use mint_nft::bucket_table::{Self, BucketTable};
 
     struct NFTMintConfig has key {
         admin: address,
@@ -37,6 +37,9 @@ module mint_nft::minting {
         royalty_points_den: u64,
         royalty_points_num: u64,
         tokens: BigVector<TokenAsset>,
+        // Here, we use a bucket table as a set to check duplicates.
+        // The `key` is the uri of the token asset and values are all `true`.
+        added_tokens: BucketTable<String, bool>,
         public_mint_limit_per_address: u64,
     }
 
@@ -80,6 +83,7 @@ module mint_nft::minting {
     const ECOLLECTION_ALREADY_CREATED: u64 = 12;
     const ECONFIG_NOT_INITIALIZED: u64 = 13;
     const EAMOUNT_EXCEEDS_MINTS_ALLOWED: u64 = 14;
+    const EDUPLICATED_TOKENS: u64 = 15;
 
     fun init_module(resource_account: &signer) {
         let resource_signer_cap = resource_account::retrieve_resource_account_cap(resource_account, @source_addr);
@@ -145,6 +149,7 @@ module mint_nft::minting {
             royalty_points_den,
             royalty_points_num,
             tokens: big_vector::new<TokenAsset>(128),
+            added_tokens: bucket_table::new<String, bool>(128),
             // value 0 means that there's no limit
             public_mint_limit_per_address,
         });
@@ -181,7 +186,7 @@ module mint_nft::minting {
         } else {
             let resource_account = create_signer_with_capability(&nft_mint_config.signer_cap);
             move_to(&resource_account, WhitelistMintConfig {
-                whitelisted_address: new<address, u64>(8),
+                whitelisted_address: bucket_table::new<address, u64>(8),
                 whitelist_minting_start_time,
                 whitelist_minting_end_time,
                 whitelist_mint_price,
@@ -196,7 +201,7 @@ module mint_nft::minting {
         } else {
             let resource_account = create_signer_with_capability(&nft_mint_config.signer_cap);
             move_to(&resource_account, PublicMintConfig {
-                public_minting_addresses: new<address, u64>(8),
+                public_minting_addresses: bucket_table::new<address, u64>(8),
                 public_minting_start_time,
                 public_minting_end_time,
                 public_mint_price,
@@ -248,12 +253,15 @@ module mint_nft::minting {
         assert!(vector::length(&token_uris) + big_vector::length(&collection_config.tokens) <= collection_config.collection_maximum || collection_config.collection_maximum == 0, error::invalid_argument(EEXCEEDS_COLLECTION_MAXIMUM));
         let i = 0;
         while (i < vector::length(&token_uris)) {
+            let token_uri = vector::borrow(&token_uris, i);
+            assert!(!bucket_table::contains(&collection_config.added_tokens, token_uri), error::invalid_argument(EDUPLICATED_TOKENS));
             big_vector::push_back(&mut collection_config.tokens, TokenAsset {
-                token_uri: *vector::borrow(&token_uris, i),
+                token_uri: *token_uri,
                 property_keys: *vector::borrow(&property_keys, i),
                 property_values: *vector::borrow(&property_values, i),
                 property_types: *vector::borrow(&property_types, i),
             });
+            bucket_table::add(&mut collection_config.added_tokens, *token_uri, true);
             i = i + 1;
         };
     }
@@ -452,7 +460,10 @@ module mint_nft::minting {
         let property_types = vector::empty<vector<String>>();
         let i = 0;
         while (i < 3) {
-            vector::push_back(&mut token_uris, utf8(b"token uri"));
+            let token_uri = utf8(b"token uri");
+            string::append(&mut token_uri, u64_to_string(i));
+
+            vector::push_back(&mut token_uris, token_uri);
             vector::push_back(&mut property_keys, vector::empty<String>());
             vector::push_back(&mut property_values, vector::empty<vector<u8>>());
             vector::push_back(&mut property_types, vector::empty<String>());
@@ -770,5 +781,22 @@ module mint_nft::minting {
         set_up_test(&source_account, &resource_account, &admin_account, &wl_nft_claimer, &public_nft_claimer, &treasury_account, &aptos_framework, 10, 0);
         let resource_signer = acquire_resource_signer(&admin_account);
         assert!(signer::address_of(&resource_signer) == signer::address_of(&resource_account), 0);
+    }
+
+    #[test (source_account = @0xcafe, resource_account = @0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5, admin_account = @0x456, wl_nft_claimer = @0x123, public_nft_claimer = @0x234, treasury_account = @0x345, aptos_framework = @aptos_framework)]
+    #[expected_failure(abort_code = 0x1000f)]
+    public entry fun test_add_duplicated_tokens(
+        source_account: signer,
+        resource_account: signer,
+        admin_account: signer,
+        wl_nft_claimer: signer,
+        public_nft_claimer: signer,
+        treasury_account: signer,
+        aptos_framework: signer,
+    ) acquires NFTMintConfig, CollectionConfig, WhitelistMintConfig, PublicMintConfig {
+        set_up_test(&source_account, &resource_account, &admin_account, &wl_nft_claimer, &public_nft_claimer, &treasury_account, &aptos_framework, 10, 0);
+        set_minting_time_and_price(&admin_account, 50, 200, 5, 201, 400, 10);
+        set_up_token_uris(&admin_account);
+        set_up_token_uris(&admin_account);
     }
 }
