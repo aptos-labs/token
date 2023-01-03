@@ -12,6 +12,8 @@ import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import { program } from "commander";
 import cluster from "node:cluster";
 import short from "short-uuid";
+import { Database } from "sqlite3";
+import util from "util";
 
 import { AptosAccount, BCS, HexString, MaybeHexString } from "aptos";
 import { version } from "../package.json";
@@ -66,8 +68,8 @@ program
   .description("Validate if the config of a project is valid.")
   .option("--project-path <project-path>", "The path to the NFT project", ".")
   .option("--check-asset-hashes")
-  .action(({ projectPath, checkAssetHashes }) => {
-    assertProjectValid(projectPath, true, checkAssetHashes || false);
+  .action(async ({ projectPath, checkAssetHashes }) => {
+    await assertProjectValid(projectPath, true, checkAssetHashes || false);
   });
 
 program
@@ -113,7 +115,7 @@ program
   )
   .option("--project-path <project-path>", "The path to the NFT project", ".")
   .action(async ({ projectPath, profile, mintingContract }) => {
-    assertProjectValid(projectPath, true);
+    await assertProjectValid(projectPath, true);
     const mintingEngine = await createNFTMintingEngine({
       projectPath,
       profile,
@@ -173,7 +175,7 @@ program
   .action(async ({ profile, mintingContract, projectPath }) => {
     // Only primary process needs to validate the project.
     if (cluster.isPrimary) {
-      assertProjectValid(projectPath, true);
+      await assertProjectValid(projectPath, true);
     }
 
     const mintingEngine = await createNFTMintingEngine({
@@ -483,7 +485,24 @@ async function getBundlrBalance(
   console.log(`${balance} OCTAS (${octasToApt(balance.toString())} APTs)`);
 }
 
-function assertProjectValid(
+async function isMintingTimeAndPriceAlreadySet(
+  projectPath: string,
+): Promise<boolean> {
+  const db = new Database(path.join(projectPath, "minting.sqlite"));
+  const dbGet = util.promisify(db.get.bind(db));
+
+  const row: any = await dbGet(
+    "SELECT finished FROM tasks where type = 'set_minting_time_and_price' and name = 'set_minting_time_and_price'",
+  );
+
+  if (row?.finished) {
+    return true;
+  }
+
+  return false;
+}
+
+async function assertProjectValid(
   projectPath: string,
   print: boolean,
   checkAssetHashes: boolean = false,
@@ -504,52 +523,59 @@ function assertProjectValid(
     warnings.push('Did you forget to set "royalty_payee_account".');
   }
 
-  if (
-    config.mint_start &&
-    config.mint_end &&
-    new Date(config.mint_end) <= new Date(config.mint_start)
-  ) {
-    // eslint-disable-next-line quotes
-    errors.push('"mint_end" should not be earlier than "mint_start".');
-  }
+  const skipMintingTimeCheck = await isMintingTimeAndPriceAlreadySet(
+    projectPath,
+  );
 
-  if (
-    config.whitelist_mint_start &&
-    config.whitelist_mint_end &&
-    new Date(config.whitelist_mint_end) <= new Date(config.whitelist_mint_start)
-  ) {
-    errors.push(
+  if (!skipMintingTimeCheck) {
+    if (
+      config.mint_start &&
+      config.mint_end &&
+      new Date(config.mint_end) <= new Date(config.mint_start)
+    ) {
       // eslint-disable-next-line quotes
-      '"whitelist_mint_end" should not be earlier than "whitelist_mint_start".',
-    );
-  }
+      errors.push('"mint_end" should not be earlier than "mint_start".');
+    }
 
-  if (
-    config.mint_start &&
-    config.whitelist_mint_end &&
-    new Date(config.mint_start) < new Date(config.whitelist_mint_end)
-  ) {
-    errors.push(
-      // eslint-disable-next-line quotes
-      '"whitelist_mint_end" should be earlier than "mint_start".',
-    );
-  }
+    if (
+      config.whitelist_mint_start &&
+      config.whitelist_mint_end &&
+      new Date(config.whitelist_mint_end) <=
+        new Date(config.whitelist_mint_start)
+    ) {
+      errors.push(
+        // eslint-disable-next-line quotes
+        '"whitelist_mint_end" should not be earlier than "whitelist_mint_start".',
+      );
+    }
 
-  if (
-    config.whitelist_mint_start &&
-    new Date(config.whitelist_mint_start) < new Date()
-  ) {
-    errors.push(
-      // eslint-disable-next-line quotes
-      '"whitelist_mint_start" should be a future time.',
-    );
-  }
+    if (
+      config.mint_start &&
+      config.whitelist_mint_end &&
+      new Date(config.mint_start) < new Date(config.whitelist_mint_end)
+    ) {
+      errors.push(
+        // eslint-disable-next-line quotes
+        '"whitelist_mint_end" should be earlier than "mint_start".',
+      );
+    }
 
-  if (config.mint_price < config.whitelist_mint_price) {
-    errors.push(
-      // eslint-disable-next-line quotes
-      '"mint_price" should be not less than "whitelist_mint_price".',
-    );
+    if (
+      config.whitelist_mint_start &&
+      new Date(config.whitelist_mint_start) < new Date()
+    ) {
+      errors.push(
+        // eslint-disable-next-line quotes
+        '"whitelist_mint_start" should be a future time.',
+      );
+    }
+
+    if (config.mint_price < config.whitelist_mint_price) {
+      errors.push(
+        // eslint-disable-next-line quotes
+        '"mint_price" should be not less than "whitelist_mint_price".',
+      );
+    }
   }
 
   if (!collection?.name) {

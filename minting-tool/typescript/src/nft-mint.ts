@@ -371,10 +371,23 @@ export class NFTMint {
     const bcsTxn = await this.client.signTransaction(this.account, rawTxn);
     const pendingTxn = await this.client.submitTransaction(bcsTxn);
 
-    await this.checkTxnSuccessWithMessage(
+    const txnResult = await this.client.waitForTransactionWithResult(
       pendingTxn.hash,
-      `Failed to add the token at index ${i} to smart contract.`,
+      {
+        timeoutSecs: 600,
+      },
     );
+
+    if (
+      !(txnResult as any)?.success &&
+      !(txnResult as any).vm_status.includes("EDUPLICATED_TOKENS")
+    ) {
+      throw new Error(
+        `Failed to add the token at index ${i} to smart contract.\nTransaction link ${this.getExplorerLink(
+          pendingTxn.hash,
+        )}`,
+      );
+    }
 
     await this.dbRun(
       `UPDATE tasks set finished = 2 where type = 'token' and name = '${row.name}'`,
