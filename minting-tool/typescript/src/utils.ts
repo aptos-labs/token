@@ -9,6 +9,8 @@ import untildify from "untildify";
 import YAML from "yaml";
 import { exec, spawn } from "child_process";
 
+export const OCTAS_PER_APT = 100000000;
+
 export const MAINNET_BUNDLR_URL = "https://node1.bundlr.network";
 export const TESTNET_BUNDLR_URL = "https://devnet.bundlr.network";
 export const MAINNET_APTOS_URL = "https://mainnet.aptoslabs.com/v1";

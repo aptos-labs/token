@@ -30,6 +30,7 @@ import {
   readProjectConfig,
   exitWithError,
   runWithAptosCLI,
+  OCTAS_PER_APT,
 } from "./utils";
 
 program
@@ -270,11 +271,6 @@ async function initProject(name: string, assetPath: string) {
         "Enter the base name of tokens. Final token names will be derived from the base name by appending sequence numbers",
     },
     {
-      type: "text",
-      name: "tokenDescription",
-      message: "Enter the default token description",
-    },
-    {
       type: "number",
       name: "royaltyPercent",
       message: "Enter royalty percentage. e.g. 5 represents 5%",
@@ -303,7 +299,7 @@ async function initProject(name: string, assetPath: string) {
     {
       type: "number",
       name: "mintPrice",
-      message: "Enter the public minting price in octas",
+      message: "Enter the public minting price in APTs",
     },
     {
       type: "confirm",
@@ -329,7 +325,7 @@ async function initProject(name: string, assetPath: string) {
     {
       type: () => (enableWL ? "number" : null),
       name: "wlPrice",
-      message: "Enter the whitelist minting price in octas",
+      message: "Enter the whitelist minting price in APTs",
     },
   ];
 
@@ -361,7 +357,7 @@ async function initProject(name: string, assetPath: string) {
 
   outJson.mint_start = response.mintStart;
   outJson.mint_end = response.mintEnd;
-  outJson.mint_price = response.mintPrice;
+  outJson.mint_price = response.mintPrice * OCTAS_PER_APT;
   outJson.max_mints_per_address = response.maxMintsPerAddress || 0;
   outJson.royalty_points_numerator = response.royaltyPercent;
   outJson.royalty_points_denominator = 100;
@@ -370,7 +366,7 @@ async function initProject(name: string, assetPath: string) {
   if (enableWL) {
     outJson.whitelist_mint_start = response.wlMintStart;
     outJson.whitelist_mint_end = response.wlMintEnd;
-    outJson.whitelist_mint_price = response.wlPrice;
+    outJson.whitelist_mint_price = response.wlPrice * OCTAS_PER_APT;
   }
 
   const jsonFiles = await globby(`${assetPath}/json/*.json`);
