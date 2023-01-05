@@ -68,6 +68,8 @@ export function Home() {
   const [loadingMintingTime, setLoadingMintingTime] = useState(false);
   const [minting, setMinting] = useState(false);
 
+  const [collectionUrl, setCollectionUrl] = useState('');
+
   const [form] = useForm();
   const { account, signAndSubmitTransaction } = useWallet();
 
@@ -107,7 +109,7 @@ export function Home() {
       try {
         setLoadingMintingTime(true);
 
-        const [wlConfig, pubMintConfig] = await Promise.all([
+        const [wlConfig, pubMintConfig, collectionConfig] = await Promise.all([
           client.getAccountResource(
             MINTING_CONTRACT!,
             `${MINTING_CONTRACT!}::minting::WhitelistMintConfig`
@@ -116,7 +118,14 @@ export function Home() {
             MINTING_CONTRACT!,
             `${MINTING_CONTRACT!}::minting::PublicMintConfig`
           ),
+          client.getAccountResource(
+            MINTING_CONTRACT!,
+            `${MINTING_CONTRACT!}::minting::CollectionConfig`
+          ),
         ]);
+
+        const collectionData = collectionConfig.data as any;
+        setCollectionUrl(collectionData.collection_uri);
 
         const wlConfigData = wlConfig.data as any;
         setWlMintConf({
@@ -172,7 +181,7 @@ export function Home() {
     <div className={styles.container}>
       <WalletButton />
       <div className={styles.innerContainer}>
-        <img className={styles.coverImage} src={coverImg} alt="cover" />
+        <img className={styles.coverImage} src={collectionUrl} alt="cover" />
         <Form
           onFinish={onFinish}
           form={form}
