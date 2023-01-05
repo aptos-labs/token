@@ -395,7 +395,7 @@ export class NFTMint {
     console.log(`Token at index ${i} is added to the smart contract.`);
   }
 
-  async addTokensBatchTask(tokens: [any, number][]) {
+  async addTokensBatchTask(tokens: [any, number][], verbose: boolean) {
     try {
       const rawTxn = await this.genAddTokensTxn(tokens);
 
@@ -423,6 +423,10 @@ export class NFTMint {
         )} are added to the smart contract.`,
       );
     } catch (e) {
+      if (verbose) {
+        console.error(e);
+      }
+
       // Falls back to single txn mode
       for (let i = 0; i < tokens.length; i += 1) {
         const [token, index] = tokens[i];
@@ -430,8 +434,11 @@ export class NFTMint {
           // In single txn mode, we allow individual txn fail and continue with the rest.
           // The reason is that some txns of the batch might have already been uploaded.
           await this.addTokensTask(token, index);
-          // eslint-disable-next-line no-empty
-        } catch (err) {}
+        } catch (err) {
+          if (verbose) {
+            console.error(err);
+          }
+        }
       }
     }
   }
@@ -440,9 +447,12 @@ export class NFTMint {
     while (this.txnBatchSize > 1) {
       try {
         // Simulate token submittion, halve txnBatchSize if simulation failed
-        const batchTokens = this.config.tokens.slice(0, this.txnBatchSize);
+        const batchTokens = this.config.tokens.slice(-1 * this.txnBatchSize);
 
-        const tokens = batchTokens.map((t: any, i: number) => [t, i]);
+        const tokens = batchTokens.map((t: any, i: number) => [
+          t,
+          this.config.tokens.length - 1 - i,
+        ]);
 
         const rawTxn = await this.genAddTokensTxn(tokens);
 
@@ -546,7 +556,7 @@ export class NFTMint {
   }
 
   // Run in parallel for a large number of assets
-  async run() {
+  async run(verbose: boolean = false) {
     if (cluster.isPrimary) {
       cluster.on("exit", () => {
         this.exitWorkers += 1;
@@ -611,7 +621,7 @@ export class NFTMint {
     }
 
     for (let j = 0; j < batches.length; j += 1) {
-      await this.addTokensBatchTask(batches[j]);
+      await this.addTokensBatchTask(batches[j], verbose);
     }
 
     await this.verifyAllTasksDone();
