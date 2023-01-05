@@ -172,7 +172,12 @@ program
     "The on-chain address of the minting contract.",
   )
   .option("--project-path <project-path>", "The path to the NFT project", ".")
-  .action(async ({ profile, mintingContract, projectPath }) => {
+  .option(
+    "--verbose",
+    "Print more information. This is useful for debugging purpose.",
+    "false",
+  )
+  .action(async ({ profile, mintingContract, projectPath, verbose }) => {
     // Only primary process needs to validate the project.
     if (cluster.isPrimary) {
       await assertProjectValid(projectPath, true);
@@ -183,7 +188,7 @@ program
       profile,
       mintingContract,
     });
-    await mintingEngine.run();
+    await mintingEngine.run(verbose);
   });
 
 program
@@ -488,16 +493,19 @@ async function getBundlrBalance(
 async function isMintingTimeAndPriceAlreadySet(
   projectPath: string,
 ): Promise<boolean> {
-  const db = new Database(path.join(projectPath, "minting.sqlite"));
-  const dbGet = util.promisify(db.get.bind(db));
+  try {
+    const db = new Database(path.join(projectPath, "minting.sqlite"));
+    const dbGet = util.promisify(db.get.bind(db));
 
-  const row: any = await dbGet(
-    "SELECT finished FROM tasks where type = 'set_minting_time_and_price' and name = 'set_minting_time_and_price'",
-  );
+    const row: any = await dbGet(
+      "SELECT finished FROM tasks where type = 'set_minting_time_and_price' and name = 'set_minting_time_and_price'",
+    );
 
-  if (row?.finished) {
-    return true;
-  }
+    if (row?.finished) {
+      return true;
+    }
+    // eslint-disable-next-line no-empty
+  } catch (e) {}
 
   return false;
 }

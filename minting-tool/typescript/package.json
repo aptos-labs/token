@@ -1,5 +1,5 @@
 {
-  "name": "aptos-mint",
+  "name": "easel",
   "description": "Aptos token minting tool",
   "license": "Apache-2.0",
   "engines": {
@@ -10,7 +10,6 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p . && cp -r src/templates dist/src && cp -r ../../contracts/mint_nft dist/src/contracts && rm -rf dist/src/contracts/build",
     "test": "jest",
-    "typedoc": "rm -rf docs && typedoc",
     "fmt": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "lint": "eslint \"**/*.ts\"",
     "prepare": "cd ../.. && husky install .husky",
@@ -23,8 +22,7 @@
   "author": "aptoslabs.com",
   "keywords": [
     "Aptos",
-    "Aptos Labs",
-    "Move"
+    "Aptos Labs"
   ],
   "dependencies": {
     "@bundlr-network/client": "^0.9.2",
