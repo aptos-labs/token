@@ -33,6 +33,8 @@ import {
   OCTAS_PER_APT,
 } from "./utils";
 
+let verboseMode = false;
+
 program
   .name("aptos-mint")
   .description("CLI to create NFT collections")
@@ -183,6 +185,8 @@ program
     if (cluster.isPrimary) {
       await assertProjectValid(projectPath, true);
     }
+
+    verboseMode = true;
 
     const mintingEngine = await createNFTMintingEngine({
       projectPath,
@@ -353,7 +357,7 @@ async function initProject(name: string, assetPath: string) {
   outJson.collection.description = response.collectionDescription;
   outJson.collection.file_path = resolvePath(response.collectionCover);
   outJson.collection.token_name_base = response.tokenNameBase;
-  outJson.collection.token_description = response.tokenDescription;
+  outJson.collection.token_description = response.tokenDescription || "";
 
   outJson.mint_start = response.mintStart;
   outJson.mint_end = response.mintEnd;
@@ -685,6 +689,10 @@ async function run() {
 }
 
 process.on("uncaughtException", (err: Error) => {
+  if (verboseMode) {
+    console.error(err);
+  }
+
   exitWithError(err.message);
 });
 
