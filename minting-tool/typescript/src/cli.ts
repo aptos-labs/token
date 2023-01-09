@@ -276,6 +276,7 @@ async function initProject(name: string, assetPath: string) {
     },
     {
       type: "number",
+      float: true,
       name: "royaltyPercent",
       message: "Enter royalty percentage. e.g. 5 represents 5%",
     },
@@ -302,6 +303,7 @@ async function initProject(name: string, assetPath: string) {
     },
     {
       type: "number",
+      float: true,
       name: "mintPrice",
       message: "Enter the public minting price in APTs",
     },
@@ -329,6 +331,7 @@ async function initProject(name: string, assetPath: string) {
     {
       type: () => (enableWL ? "number" : null),
       name: "wlPrice",
+      float: true,
       message: "Enter the whitelist minting price in APTs",
     },
   ];
@@ -363,8 +366,13 @@ async function initProject(name: string, assetPath: string) {
   outJson.mint_end = response.mintEnd;
   outJson.mint_price = response.mintPrice * OCTAS_PER_APT;
   outJson.max_mints_per_address = response.maxMintsPerAddress || 0;
-  outJson.royalty_points_numerator = response.royaltyPercent;
-  outJson.royalty_points_denominator = 100;
+
+  // Here we need to do number scaling since the smart contract only accepts integers. We only allow creators to provide
+  // a number with a maximum of two digits precision.
+  outJson.royalty_points_numerator = Math.floor(
+    Number.parseFloat(response.royaltyPercent) * 100,
+  );
+  outJson.royalty_points_denominator = 10000;
   outJson.royalty_payee_account = response.royaltyPayeeAcct;
 
   if (enableWL) {
@@ -618,6 +626,19 @@ async function assertProjectValid(
     if (token.supply <= 0) {
       errors.push(`${token.name} "supply" is <= 0`);
     }
+
+    // Make sure token attributes are unique
+    const attributeKeys = new Set();
+    token.metadata?.attributes?.forEach((attr: any) => {
+      if (attr?.trait_type) {
+        if (attributeKeys.has(attr.trait_type)) {
+          throw new Error(
+            `Found duplicate trait type "${attr.trait_type}" for token ${i}`,
+          );
+        }
+        attributeKeys.add(attr.trait_type);
+      }
+    });
 
     // Warning! This is going to be really slow.
     if (checkAssetHashes) {
