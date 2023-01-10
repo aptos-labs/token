@@ -247,7 +247,7 @@ async function initProject(name: string, assetPath: string) {
     recursive: true,
   });
 
-  let enableWL = false;
+  const enableWL = true;
 
   const questions = [
     {
@@ -306,17 +306,6 @@ async function initProject(name: string, assetPath: string) {
       float: true,
       name: "mintPrice",
       message: "Enter the public minting price in APTs",
-    },
-    {
-      type: "confirm",
-      name: "enableWL",
-      message: "Do you want to support whitelist minting?",
-    },
-    {
-      type: (prev: any) => {
-        enableWL = prev;
-        return null;
-      },
     },
     {
       type: () => (enableWL ? "date" : null),
