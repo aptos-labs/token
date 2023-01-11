@@ -33,11 +33,14 @@ import {
   OCTAS_PER_APT,
 } from "./utils";
 
-let verboseMode = false;
-
 program
   .name("easel")
   .description("CLI to create NFT collections")
+  .option(
+    "-v, --verbose",
+    "Print more information. This is useful for debugging purpose.",
+    false,
+  )
   .version(version);
 
 program
@@ -175,25 +178,18 @@ program
     "The on-chain address of the minting contract.",
   )
   .option("--project-path <project-path>", "The path to the NFT project", ".")
-  .option(
-    "--verbose",
-    "Print more information. This is useful for debugging purpose.",
-    "false",
-  )
-  .action(async ({ profile, mintingContract, projectPath, verbose }) => {
+  .action(async ({ profile, mintingContract, projectPath }) => {
     // Only primary process needs to validate the project.
     if (cluster.isPrimary) {
       await assertProjectValid(projectPath, true);
     }
-
-    verboseMode = true;
 
     const mintingEngine = await createNFTMintingEngine({
       projectPath,
       profile,
       mintingContract,
     });
-    await mintingEngine.run(verbose);
+    await mintingEngine.run();
   });
 
 program
@@ -699,7 +695,7 @@ async function run() {
 }
 
 process.on("uncaughtException", (err: Error) => {
-  if (verboseMode) {
+  if (program.opts().verbose) {
     console.error(err);
   }
 

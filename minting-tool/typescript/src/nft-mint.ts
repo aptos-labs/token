@@ -15,6 +15,7 @@ import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import canonicalize from "canonicalize";
 import cluster from "node:cluster";
 import { cpus } from "node:os";
+import { program } from "commander";
 
 import fs from "fs";
 
@@ -395,7 +396,7 @@ export class NFTMint {
     console.log(`Token at index ${i} is added to the smart contract.`);
   }
 
-  async addTokensBatchTask(tokens: [any, number][], verbose: boolean) {
+  async addTokensBatchTask(tokens: [any, number][]) {
     try {
       const rawTxn = await this.genAddTokensTxn(tokens);
 
@@ -423,7 +424,7 @@ export class NFTMint {
         )} are added to the smart contract.`,
       );
     } catch (e) {
-      if (verbose) {
+      if (program.opts().verbose) {
         console.error(e);
       }
 
@@ -435,7 +436,7 @@ export class NFTMint {
           // The reason is that some txns of the batch might have already been uploaded.
           await this.addTokensTask(token, index);
         } catch (err) {
-          if (verbose) {
+          if (program.opts().verbose) {
             console.error(err);
           }
         }
@@ -556,7 +557,7 @@ export class NFTMint {
   }
 
   // Run in parallel for a large number of assets
-  async run(verbose: boolean = false) {
+  async run() {
     if (cluster.isPrimary) {
       cluster.on("exit", () => {
         this.exitWorkers += 1;
@@ -621,7 +622,7 @@ export class NFTMint {
     }
 
     for (let j = 0; j < batches.length; j += 1) {
-      await this.addTokensBatchTask(batches[j], verbose);
+      await this.addTokensBatchTask(batches[j]);
     }
 
     await this.verifyAllTasksDone();
