@@ -36,7 +36,7 @@ import {
 let verboseMode = false;
 
 program
-  .name("aptos-mint")
+  .name("easel")
   .description("CLI to create NFT collections")
   .version(version);
 
@@ -85,12 +85,12 @@ program
     "The profile name of the Aptos CLI. This account needs to have the APTs to fund Bundlr.",
   )
   .requiredOption(
-    "--amount <octas>",
+    "--octas <octas>",
     "The amount of Octas to fund the Bundlr service.",
   )
-  .action(async ({ profile, amount }) => {
+  .action(async ({ profile, octas }) => {
     const [account, network] = await resolveProfile(profile);
-    await fundBundlr(account, amount, network);
+    await fundBundlr(account, octas, network);
   });
 
 program
