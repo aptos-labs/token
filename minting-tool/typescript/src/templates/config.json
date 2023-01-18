@@ -6,7 +6,7 @@
   "mint_end": null,
   "mint_price": null,
   "max_mints_per_address": 0,
-  "whitelist_mint_start": null,
-  "whitelist_mint_end": null,
-  "whitelist_mint_price": null
+  "whitelist_mint_start": 0,
+  "whitelist_mint_end": 0,
+  "whitelist_mint_price": 0
 }
