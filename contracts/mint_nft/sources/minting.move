@@ -84,7 +84,7 @@ module mint_nft::minting {
     const ECONFIG_NOT_INITIALIZED: u64 = 13;
     const EAMOUNT_EXCEEDS_MINTS_ALLOWED: u64 = 14;
     const EDUPLICATED_TOKENS: u64 = 15;
-    const ECANNOT_REMOVE_EXISTING_WHITELIST: u64 = 16;
+    const ECANNOT_REMOVE_EXISTING_WHITELIST_CONFIG: u64 = 16;
 
     fun init_module(resource_account: &signer) {
         let resource_signer_cap = resource_account::retrieve_resource_account_cap(resource_account, @source_addr);
@@ -172,7 +172,9 @@ module mint_nft::minting {
         assert!(signer::address_of(admin) == nft_mint_config.admin, error::permission_denied(ENOT_AUTHORIZED));
 
         let now = timestamp::now_seconds();
-        if (whitelist_mint_price > 0) {
+
+        // whitelist_minting_start_time of value 0 indicates that the NFT project doesn't have a whitelist
+        if (whitelist_minting_start_time > 0) {
             // assert that we are setting the whitelist time to sometime in the future
             assert!(whitelist_minting_start_time > now && whitelist_minting_start_time < whitelist_minting_end_time, error::invalid_argument(EINVALID_TIME));
             // assert that the public minting starts after the whitelist minting ends
@@ -182,16 +184,16 @@ module mint_nft::minting {
         };
 
         if (exists<WhitelistMintConfig>(@mint_nft)) {
-            assert!(whitelist_mint_price != 0, error::invalid_argument(ECANNOT_REMOVE_EXISTING_WHITELIST));
+            assert!(whitelist_minting_start_time > 0, error::invalid_argument(ECANNOT_REMOVE_EXISTING_WHITELIST_CONFIG));
             let whitelist_mint_config = borrow_global_mut<WhitelistMintConfig>(@mint_nft);
             whitelist_mint_config.whitelist_minting_start_time = whitelist_minting_start_time;
             whitelist_mint_config.whitelist_minting_end_time = whitelist_minting_end_time;
             whitelist_mint_config.whitelist_mint_price = whitelist_mint_price;
         } else {
-            if (whitelist_mint_price != 0) {
+            if (whitelist_minting_start_time != 0) {
                 let resource_account = create_signer_with_capability(&nft_mint_config.signer_cap);
                 move_to(&resource_account, WhitelistMintConfig {
-                    whitelisted_address: new<address, u64>(128),
+                    whitelisted_address: bucket_table::new<address, u64>(128),
                     whitelist_minting_start_time,
                     whitelist_minting_end_time,
                     whitelist_mint_price,
@@ -801,7 +803,7 @@ module mint_nft::minting {
     }
 
     #[test (source_account = @0xcafe, resource_account = @0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5, admin_account = @0x456, wl_nft_claimer = @0x123, public_nft_claimer = @0x234, treasury_account = @0x345, aptos_framework = @aptos_framework)]
-    #[expected_failure(abort_code = 0x1000f)]
+    #[expected_failure(abort_code = 0x1000f, location = Self)]
     public entry fun test_add_duplicated_tokens(
         source_account: signer,
         resource_account: signer,
@@ -817,6 +819,7 @@ module mint_nft::minting {
         set_up_token_uris(&admin_account);
     }
 
+    #[test (source_account = @0xcafe, resource_account = @0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5, admin_account = @0x456, wl_nft_claimer = @0x123, public_nft_claimer = @0x234, treasury_account = @0x345, aptos_framework = @aptos_framework)]
     public entry fun test_no_white_list(
         source_account: signer,
         resource_account: signer,
@@ -852,5 +855,21 @@ module mint_nft::minting {
         let wl_addresses = vector::empty<address>();
         vector::push_back(&mut wl_addresses, signer::address_of(&wl_nft_claimer));
         add_to_whitelist(&admin_account, wl_addresses, 2);
+    }
+
+    #[test (source_account = @0xcafe, resource_account = @0xc3bb8488ab1a5815a9d543d7e41b0e0df46a7396f89b22821f07a4362f75ddc5, admin_account = @0x456, wl_nft_claimer = @0x123, public_nft_claimer = @0x234, treasury_account = @0x345, aptos_framework = @aptos_framework)]
+    #[expected_failure(abort_code = 0x10010, location = Self)]
+    public entry fun test_invalid_remove_whitelist_config(
+        source_account: signer,
+        resource_account: signer,
+        admin_account: signer,
+        wl_nft_claimer: signer,
+        public_nft_claimer: signer,
+        treasury_account: signer,
+        aptos_framework: signer,
+    ) acquires NFTMintConfig, WhitelistMintConfig, PublicMintConfig {
+        set_up_test(&source_account, &resource_account, &admin_account, &wl_nft_claimer, &public_nft_claimer, &treasury_account, &aptos_framework, 10, 0);
+        set_minting_time_and_price(&admin_account, 20, 49, 5, 50, 200, 10);
+        set_minting_time_and_price(&admin_account, 0, 0, 0, 50, 200, 10);
     }
 }
