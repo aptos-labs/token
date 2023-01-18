@@ -242,13 +242,13 @@ export class NFTMint {
         function: `${this.mintingContractAddress}::minting::set_minting_time_and_price`,
         type_arguments: [],
         arguments: [
-          dateTimeStrToUnixSecs(
-            this.config.whitelist_mint_start || this.config.mint_start,
-          ),
-          dateTimeStrToUnixSecs(
-            this.config.whitelist_mint_end || this.config.mint_end,
-          ),
-          this.config.whitelist_mint_price || this.config.mint_price,
+          this.config.whitelist_mint_start
+            ? dateTimeStrToUnixSecs(this.config.whitelist_mint_start)
+            : 0,
+          this.config.whitelist_mint_end
+            ? dateTimeStrToUnixSecs(this.config.whitelist_mint_end)
+            : 0,
+          this.config.whitelist_mint_price || 0,
           dateTimeStrToUnixSecs(this.config.mint_start),
           dateTimeStrToUnixSecs(this.config.mint_end),
           this.config.mint_price,

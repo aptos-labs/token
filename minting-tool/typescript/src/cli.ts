@@ -243,7 +243,7 @@ async function initProject(name: string, assetPath: string) {
     recursive: true,
   });
 
-  const enableWL = true;
+  let enableWL = true;
 
   const questions = [
     {
@@ -302,6 +302,17 @@ async function initProject(name: string, assetPath: string) {
       float: true,
       name: "mintPrice",
       message: "Enter the public minting price in APTs",
+    },
+    {
+      type: "confirm",
+      name: "enableWL",
+      message: "Do you want to support whitelist minting?",
+    },
+    {
+      type: (prev: any) => {
+        enableWL = prev;
+        return null;
+      },
     },
     {
       type: () => (enableWL ? "date" : null),
@@ -571,7 +582,10 @@ async function assertProjectValid(
       );
     }
 
-    if (config.mint_price < config.whitelist_mint_price) {
+    if (
+      config.whitelist_mint_price !== 0 &&
+      config.mint_price < config.whitelist_mint_price
+    ) {
       errors.push(
         // eslint-disable-next-line quotes
         '"mint_price" should be not less than "whitelist_mint_price".',
