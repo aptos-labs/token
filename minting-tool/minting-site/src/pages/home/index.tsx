@@ -109,11 +109,28 @@ export function Home() {
       try {
         setLoadingMintingTime(true);
 
-        const [wlConfig, pubMintConfig, collectionConfig] = await Promise.all([
-          client.getAccountResource(
+        try {
+          const wlConfig = await client.getAccountResource(
             MINTING_CONTRACT!,
             `${MINTING_CONTRACT!}::minting::WhitelistMintConfig`
-          ),
+          );
+
+          const wlConfigData = wlConfig.data as any;
+          setWlMintConf({
+            start: wlConfigData.whitelist_minting_start_time,
+            end: wlConfigData.whitelist_minting_end_time,
+            price: wlConfigData.whitelist_mint_price,
+          });
+
+          setWlTableHandle(
+            (wlConfig.data as any)?.whitelisted_address?.buckets?.inner
+              ?.handle || ''
+          );
+        } catch (e: any) {
+          // ignore the errors
+        }
+
+        const [pubMintConfig, collectionConfig] = await Promise.all([
           client.getAccountResource(
             MINTING_CONTRACT!,
             `${MINTING_CONTRACT!}::minting::PublicMintConfig`
@@ -127,24 +144,12 @@ export function Home() {
         const collectionData = collectionConfig.data as any;
         setCollectionUrl(collectionData.collection_uri);
 
-        const wlConfigData = wlConfig.data as any;
-        setWlMintConf({
-          start: wlConfigData.whitelist_minting_start_time,
-          end: wlConfigData.whitelist_minting_end_time,
-          price: wlConfigData.whitelist_mint_price,
-        });
-
         const pubMintConfigData = pubMintConfig.data as any;
         setPublicMintConf({
           start: pubMintConfigData.public_minting_start_time,
           end: pubMintConfigData.public_minting_end_time,
           price: pubMintConfigData.public_mint_price,
         });
-
-        setWlTableHandle(
-          (wlConfig.data as any)?.whitelisted_address?.buckets?.inner?.handle ||
-            ''
-        );
       } catch (e: any) {
         console.error(e);
         message.error(e?.message || 'Failed to load the minting information.');
