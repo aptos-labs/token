@@ -1,40 +1,13 @@
+# Token Tooling
 
-# TokenShop Requirements
+## Aptos NFT mint tool
 
-## Interactive UI for Entering Asset Info
+The Aptos Non-Fungible Token (NFT) Minting Tool includes a CLI, a mint contract, and a template minting site that aim to lower the barriers for NFT creators to launch NFTs on Aptos. Currently, supported features include:
 
-Through Cli prompts to generate `asset.json` in the asset folder
+- Paying storage services with APTs. The Aptos NFT mint tool uploads NFT assets to Arweave through the [Bundlr](https://bundlr.network/) service. Bundlr makes it easy for creators to pay for the storage with APTs.
+- Presale support through whitelisted addresses.
+- Randomizing NFT mint order to reduce the impact of the rarity sniping tool.
+- Supporting large-scale collections. The tool uploads assets in parallel and prepares the NFTs data in batches.
+- Tracking progresses in a local DB
 
-## Creating NFT Metadata from Asset Files
-
-1. Read from a fold with asset files and asset.json
-2. Parse the asset.json
-3. loop through all the entries in the asset.json
-   1. uploader uploads the asset file to bundlr
-   2. compute the content hash of the asset file
-   3. check if there are multiple creators in Royalty
-      1. yes, create a shared account module on the user's account with creators and their weights, use that account as royalty payee account
-      2. no, use the user's account as royalty payee account
-4. upload all txn arguments to created resource account
-
-## Mint NFTs on Demand
-
-* Buyer can pay a price to mint token from the collection with an unknown imageUrl. To get unknown imageUrl, use a timestamp hash to get corresponding image index on the uploaded image.
-* Token shop maintains a status of an image. If it is already claimed, it automatically samples the next image for token creation
-* Allow discount on whitelist
-
-## Control Access
-Provide a list of options rules that restrict the access.
-If there are multiple rules applies, we use the and of different rules
-
-* provide a Cli for signing off-chain proof containing, eg: whitelisted account addresses
-* Provide a start and end time for accessing the mint
-
-## Reporting
-
-Report MetaData uploaded and deployed to resource account
-
-## Failure Recovery
-
-Resume the work from failed item
-
+For details about using the tool see: [https://aptos.dev/concepts/coin-and-token/nft-minting-tool/](https://aptos.dev/concepts/coin-and-token/nft-minting-tool/)
