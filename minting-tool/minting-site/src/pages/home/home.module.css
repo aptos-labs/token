@@ -17,7 +17,7 @@
 }
 
 .actionsContainer {
-  padding: 0;
+  padding: 10px 0;
 }
 
 @media screen and (max-width: 768px) {
@@ -33,10 +33,6 @@
 
 .mintAmountInput {
   width: 100%;
-}
-
-.mintInfoCard, .mintAmountInput  {
-  margin-top: 15px;
 }
 
 .mintTimeText {
