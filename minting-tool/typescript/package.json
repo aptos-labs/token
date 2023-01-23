@@ -1,5 +1,5 @@
 {
-  "name": "easel",
+  "name": "aptos-mint",
   "description": "Aptos token minting tool",
   "license": "Apache-2.0",
   "engines": {

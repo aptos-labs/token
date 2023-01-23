@@ -34,7 +34,7 @@ import {
 } from "./utils";
 
 program
-  .name("easel")
+  .name("aptos-mint")
   .description("CLI to create NFT collections")
   .option(
     "-v, --verbose",
