@@ -9,11 +9,10 @@ import {
   message,
 } from 'antd';
 import styles from './home.module.css';
-import coverImg from '../../assets/aptos-zero.png';
-import { WalletButton } from '../../components/wallet';
 import { AptosClient } from 'aptos';
 import moment from 'moment';
 import { useWallet } from '@manahippo/aptos-wallet-adapter';
+import { Navbar } from '../../components/Navbar';
 
 const MINTING_CONTRACT = process.env.REACT_APP_MINTING_CONTRACT;
 
@@ -68,7 +67,10 @@ export function Home() {
   const [loadingMintingTime, setLoadingMintingTime] = useState(false);
   const [minting, setMinting] = useState(false);
 
-  const [collectionUrl, setCollectionUrl] = useState('');
+  const [collectionData, setCollectionData] = useState<{
+    collection_uri: string;
+    collection_name: string;
+  }>({ collection_uri: '', collection_name: '' });
 
   const [form] = useForm();
   const { account, signAndSubmitTransaction } = useWallet();
@@ -142,7 +144,7 @@ export function Home() {
         ]);
 
         const collectionData = collectionConfig.data as any;
-        setCollectionUrl(collectionData.collection_uri);
+        setCollectionData(collectionData);
 
         const pubMintConfigData = pubMintConfig.data as any;
         setPublicMintConf({
@@ -184,16 +186,26 @@ export function Home() {
 
   return (
     <div className={styles.container}>
-      <WalletButton />
+      <Navbar
+        pic={collectionData.collection_uri}
+        title={'helo world hello world hello world'}
+      />
       <div className={styles.innerContainer}>
-        <img className={styles.coverImage} src={collectionUrl} alt="cover" />
+        <img
+          className={styles.coverImage}
+          src={collectionData.collection_uri}
+          alt="cover"
+        />
         <Form
           onFinish={onFinish}
           form={form}
           className={styles.actionsContainer}
+          layout="vertical"
+          requiredMark={false}
         >
           <Form.Item
             name="amount"
+            label="Amount to mint"
             rules={[
               {
                 required: true,
