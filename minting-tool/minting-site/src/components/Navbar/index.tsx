@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import cx from 'classnames';
 import styles from './navbar.module.css';
-import { WalletButton } from '../Wallet';
+import { WalletSelector } from '@aptos-labs/wallet-adapter-ant-design';
 import { Avatar, Typography } from 'antd';
+import './wallet-adapter.css';
 
 const { Text } = Typography;
 
@@ -33,7 +34,7 @@ export function Navbar({ pic, title }: { pic: string; title: string }) {
         {title}
       </Text>
       <div style={{ paddingLeft: 10, paddingRight: 10 }}>
-        <WalletButton />
+        <WalletSelector />
       </div>
     </nav>
   );

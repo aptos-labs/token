@@ -1,0 +1,59 @@
+.ant-menu {
+  border: none !important;
+}
+.ant-menu-item {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  height: auto !important;
+  margin-bottom: 10px !important;
+}
+.ant-menu-item-selected {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  color: black !important;
+}
+.wallet-selector-text {
+  font-size: 14px;
+}
+.wallet-connect-button-text {
+  color: white;
+}
+.wallet-menu-wrapper {
+  display: flex;
+  justify-content: space-between;
+  font-size: 20px;
+}
+.wallet-name-wrapper {
+  display: flex;
+  align-items: center;
+}
+.wallet-connect-button {
+  align-self: center;
+  background-color: #1D4ED8;
+  height: auto;
+  border: none !important;
+}
+.wallet-connect-install {
+  align-self: center;
+  color: #1D4ED8;
+  padding-right: 15px;
+  font-size: 16px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.wallet-button {
+  padding: 10px 20px;
+  height: auto;
+  font-size: 16px;
+  background-color: #1D4ED8;
+  color: white;
+  border: none !important;
+}
+.wallet-button:hover {
+  color: white !important;
+  transition: color 0.3s;
+  opacity: 0.8;
+}
+.wallet-modal-title {
+  text-align: center;
+  font-size: 2rem;
+}

@@ -11,7 +11,7 @@ import {
 import styles from './home.module.css';
 import { AptosClient } from 'aptos';
 import moment from 'moment';
-import { useWallet } from '@manahippo/aptos-wallet-adapter';
+import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { Navbar } from '../../components/Navbar';
 
 const MINTING_CONTRACT = process.env.REACT_APP_MINTING_CONTRACT;
