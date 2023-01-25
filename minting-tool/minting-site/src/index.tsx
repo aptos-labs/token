@@ -4,14 +4,35 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import WalletsProvider from './WalletProvider';
+import { AptosWalletAdapterProvider } from '@aptos-labs/wallet-adapter-react';
+
+import { PetraWallet } from 'petra-plugin-wallet-adapter';
+import { TrustWallet } from '@trustwallet/aptos-wallet-adapter';
+import { PontemWallet } from '@pontem/wallet-adapter-plugin';
+import { MartianWallet } from '@martianwallet/aptos-wallet-adapter';
+import { RiseWallet } from '@rise-wallet/wallet-adapter';
+import { SpikaWallet } from '@spika/aptos-plugin';
+import { FewchaWallet } from 'fewcha-plugin-wallet-adapter';
+import { MSafeWalletAdapter } from 'msafe-plugin-wallet-adapter';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
-    <WalletsProvider>
+    <AptosWalletAdapterProvider
+      plugins={[
+        new PetraWallet(),
+        new PontemWallet(),
+        new MartianWallet(),
+        new RiseWallet(),
+        new FewchaWallet(),
+        new SpikaWallet(),
+        new TrustWallet(),
+        new MSafeWalletAdapter(),
+      ]}
+      autoConnect={true}
+    >
       <ConfigProvider
         theme={{
           token: {
@@ -22,7 +43,7 @@ root.render(
       >
         <App />
       </ConfigProvider>
-    </WalletsProvider>
+    </AptosWalletAdapterProvider>
   </React.StrictMode>
 );
 
