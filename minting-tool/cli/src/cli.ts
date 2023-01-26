@@ -4,7 +4,7 @@
 import fs from "fs";
 import { exit } from "process";
 import chalk from "chalk";
-import globby from "globby";
+import glob from "glob";
 import path from "path";
 import prompts from "prompts";
 import Bundlr from "@bundlr-network/client";
@@ -218,20 +218,23 @@ program
     );
 
     await runWithAptosCLI(
-      `aptos move create-resource-account-and-publish-package --seed ${seed} --package-dir ${fullProjectPath}/contracts --address-name mint_nft --named-addresses source_addr=${profile} --profile ${profile}`,
+      `aptos move create-resource-account-and-publish-package --seed ${seed} --package-dir ${path.join(
+        fullProjectPath,
+        "contracts",
+      )} --address-name mint_nft --named-addresses source_addr=${profile} --profile ${profile}`,
     );
 
     await setMintingContractAddress(projectPath, resourceAccountAddr.hex());
   });
 
 async function initProject(name: string, assetPath: string) {
-  const fullPath = `./${name}`;
+  const fullPath = resolvePath(".", name);
   if (fs.existsSync(fullPath)) {
     exitWithError(`${fullPath} already exists.`);
   }
   fs.mkdirSync(fullPath, { recursive: true });
 
-  const configPath = `${fullPath}/config.json`;
+  const configPath = path.join(fullPath, "config.json");
   if (fs.existsSync(configPath)) {
     exitWithError(`${configPath} already exists.`);
   }
@@ -239,9 +242,13 @@ async function initProject(name: string, assetPath: string) {
   fs.mkdirSync(fullPath, { recursive: true });
 
   // We would like to pull in the smart contract to the project folder
-  fs.cpSync(`${__dirname}/contracts`, `${fullPath}/contracts`, {
-    recursive: true,
-  });
+  fs.cpSync(
+    `${path.join(__dirname, "contracts")}`,
+    path.join(fullPath, "contracts"),
+    {
+      recursive: true,
+    },
+  );
 
   let enableWL = true;
 
@@ -334,9 +341,9 @@ async function initProject(name: string, assetPath: string) {
 
   const response = await prompts(questions as any);
   const [configBuf, collectionBuf, tokenBuf] = await Promise.all([
-    fs.promises.readFile(`${__dirname}/templates/config.json`),
-    fs.promises.readFile(`${__dirname}/templates/collection.json`),
-    fs.promises.readFile(`${__dirname}/templates/token.json`),
+    fs.promises.readFile(path.join(__dirname, "templates", "config.json")),
+    fs.promises.readFile(path.join(__dirname, "templates", "collection.json")),
+    fs.promises.readFile(path.join(__dirname, "templates", "token.json")),
   ]);
 
   const configJson = JSON.parse(configBuf.toString("utf8"));
@@ -377,7 +384,10 @@ async function initProject(name: string, assetPath: string) {
     outJson.whitelist_mint_price = response.wlPrice * OCTAS_PER_APT;
   }
 
-  const jsonFiles = await globby(`${assetPath}/json/*.json`);
+  const jsonFiles: string[] = glob.sync(
+    resolvePath(assetPath, "json", "*.json"),
+    { windowsPathsNoEscape: true },
+  );
 
   jsonFiles.forEach((p) => {
     if (path.basename(p) === "_metadata.json") return;
@@ -403,7 +413,7 @@ async function initProject(name: string, assetPath: string) {
   });
 
   await fs.promises.writeFile(
-    `${fullPath}/config.json`,
+    path.join(fullPath, "config.json"),
     JSON.stringify(outJson, null, 4),
     "utf8",
   );
@@ -420,17 +430,27 @@ async function checkHashLipsAsset(assetPath: string) {
 
   // We first check "images" and "json" directories exist
 
-  if (!fs.existsSync(`${assetPath}/images`)) {
-    exitWithError(`Directory "${assetPath}/images" doesn't exist.`);
+  if (!fs.existsSync(resolvePath(assetPath, "images"))) {
+    exitWithError(
+      `Directory "${resolvePath(assetPath, "images")}" doesn't exist.`,
+    );
   }
 
-  if (!fs.existsSync(`${assetPath}/json`)) {
-    exitWithError(`Directory "${assetPath}/json" doesn't exist.`);
+  if (!fs.existsSync(resolvePath(assetPath, "json"))) {
+    exitWithError(
+      `Directory "${resolvePath(assetPath, "json")}" doesn't exist.`,
+    );
   }
 
   // Check that if every image file has a corresponding json file
-  const images = await globby(`${assetPath}/images/*.png`); // only png files are supported
-  const jsonFiles = await globby(`${assetPath}/json/*.json`);
+  const images: string[] = glob.sync(
+    resolvePath(assetPath, "images", "*.png"),
+    { windowsPathsNoEscape: true },
+  ); // only png files are supported
+  const jsonFiles: string[] = glob.sync(
+    resolvePath(assetPath, "json", "*.json"),
+    { windowsPathsNoEscape: true },
+  );
   const jsonSet = new Set();
   jsonFiles.forEach((p) => jsonSet.add(path.basename(p, ".json")));
   images.forEach((p) => {
@@ -663,7 +683,9 @@ async function assertProjectValid(
     warnings.forEach((warn: string) => console.error(chalk.yellow(warn)));
 
     if (errors.length === 0 && warnings.length === 0) {
-      console.log(`${projectPath}/config.json passed validation check.`);
+      console.log(
+        `${path.join(projectPath, "config.json")} passed validation check.`,
+      );
     }
   }
 
@@ -698,7 +720,7 @@ async function setMintingContractAddress(
   config.contractAddress = contractAddress;
 
   await fs.promises.writeFile(
-    `${resolvePath(projectPath)}/config.json`,
+    `${resolvePath(projectPath, "config.json")}`,
     JSON.stringify(config, null, 4),
     "utf8",
   );

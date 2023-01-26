@@ -42,7 +42,7 @@ export async function resolveProfile(
   profileName: string,
 ): Promise<[AptosAccount, NetworkType]> {
   // Check if Aptos CLI config file exists
-  const cliConfigFile = resolvePath(os.homedir(), ".aptos/config.yaml");
+  const cliConfigFile = resolvePath(os.homedir(), ".aptos", "config.yaml");
   if (!fs.existsSync(cliConfigFile)) {
     throw new Error(
       "Cannot find the global config for Aptos CLI. Did you forget to run command 'aptos config set-global-config --config-type global && aptos init --profile <profile-name>'?",
