@@ -11,6 +11,7 @@ import {
 import styles from './home.module.css';
 import { AptosClient } from 'aptos';
 import moment from 'moment';
+import { Helmet } from 'react-helmet';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { Navbar } from '../../components/Navbar';
 
@@ -186,6 +187,9 @@ export function Home() {
 
   return (
     <div className={styles.container}>
+      <Helmet>
+        <title>{collectionData.collection_name}</title>
+      </Helmet>
       <Navbar
         pic={collectionData.collection_uri}
         title={collectionData.collection_name}
