@@ -188,7 +188,7 @@ export function Home() {
     <div className={styles.container}>
       <Navbar
         pic={collectionData.collection_uri}
-        title={'helo world hello world hello world'}
+        title={collectionData.collection_name}
       />
       <div className={styles.innerContainer}>
         <img
