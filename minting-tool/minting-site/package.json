@@ -10,7 +10,6 @@
     "@pontem/wallet-adapter-plugin": "^0.1.4",
     "@rise-wallet/wallet-adapter": "^0.1.2",
     "@spika/aptos-plugin": "^0.1.2",
-    "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "@trustwallet/aptos-wallet-adapter": "^0.1.6",
@@ -20,6 +19,7 @@
     "@types/react-dom": "^18.0.9",
     "antd": "^5.0.3",
     "aptos": "^1.4.0",
+    "classnames": "^2.3.2",
     "fewcha-plugin-wallet-adapter": "^0.1.1",
     "moment": "^2.29.4",
     "msafe-plugin-wallet-adapter": "^0.1.0",
@@ -56,6 +56,9 @@
     ]
   },
   "devDependencies": {
-    "@types/react-helmet": "^6.1.6"
+    "@testing-library/dom": "^8.20.0",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@types/react-helmet": "^6.1.6",
+    "@types/testing-library__jest-dom": "^5.14.5"
   }
 }
